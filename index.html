@@ -1,0 +1,4116 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>WILDLANDS — Voxel Survival &amp; Creative</title>
+<style>
+:root{
+  --red:#d94b42;
+  --gold:#e7d8a6;
+  --blue:#58a6d8;
+  --green:#6ec47a;
+  --glass:rgba(12,17,18,.86);
+  --line:rgba(255,255,255,.18);
+}
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0a0f12;color:#f4f3ed;font:13px system-ui,-apple-system,Segoe UI,sans-serif}
+#game{position:fixed;inset:0}
+canvas{display:block;width:100%;height:100%}
+.panel{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:12px;box-shadow:0 8px 30px #0007}
+
+/* Top HUD */
+#top{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;gap:10px;z-index:2}
+#topLeft{display:flex;flex-direction:column;gap:8px;max-width:340px}
+#brand{padding:9px 13px;letter-spacing:.14em;font-weight:800;text-shadow:0 2px 8px #000;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:99px;background:#ffffff18;color:var(--gold);font-weight:700}
+.badge.creative{background:#6ec47a2e;color:#9df0a8;border:1px solid #6ec47a66}
+.badge.fly{background:#58a6d833;color:#a8e1ff;border:1px solid #58a6d888}
+.badge.mp{background:#58a6d824;color:#bce6ff;border:1px solid #58a6d855}
+#weatherBadge{color:#9fd3f5}
+
+/* Quest Panel */
+#questPanel{padding:9px 12px;font-size:12px;pointer-events:auto;cursor:pointer;transition:transform .12s}
+#questPanel:hover{transform:translateY(-1px)}
+.qtitle{font-size:10px;letter-spacing:.1em;color:var(--gold);font-weight:800;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+#questText{font-weight:650;color:#f2f4ef;line-height:1.35}
+#questProg{font-size:11px;color:#b8c2ba;margin-top:3px}
+
+/* Vitals Panel */
+#stats{padding:9px 12px;min-width:210px;font-size:11px}
+.statrow{display:flex;justify-content:space-between;align-items:center}
+.bar{height:6px;background:#ffffff24;border-radius:10px;overflow:hidden;margin:3px 0 6px}
+.fill{height:100%;width:100%;background:#cf5148;transition:width .18s ease}
+#buffs{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px;font-size:10px;color:#d6dbd3}
+.pill{padding:2px 7px;border-radius:99px;background:#ffffff14;border:1px solid #ffffff22}
+
+/* Hint, Crosshair & Block Progress */
+#hint{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:6px 12px;text-align:center;font-size:11px;pointer-events:none;white-space:nowrap;z-index:2;color:#e4e7e0}
+#cross{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;pointer-events:none;z-index:2;display:grid;place-items:center;font-size:20px;color:#fff;text-shadow:0 1px 5px #000;transition:transform .08s ease,color .12s ease}
+#cross.active{color:var(--gold);transform:translate(-50%,-50%) scale(1.18)}
+#cross.enemy{color:#ff665c;transform:translate(-50%,-50%) scale(1.25)}
+#targetLabel{position:fixed;left:50%;top:calc(50% + 18px);transform:translateX(-50%);font-size:11px;padding:3px 10px;border-radius:99px;background:#0d1314d9;border:1px solid #ffffff26;pointer-events:none;opacity:0;transition:opacity .12s;z-index:2;white-space:nowrap}
+#mineBarWrap{position:fixed;left:50%;top:calc(50% + 42px);transform:translateX(-50%);width:96px;height:5px;background:#0009;border:1px solid #ffffff30;border-radius:99px;overflow:hidden;opacity:0;pointer-events:none;z-index:2}
+#mineBar{height:100%;width:0%;background:var(--gold)}
+
+/* Hotbar */
+#bottom{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:5px;padding:6px;max-width:97vw;z-index:2;overflow-x:auto}
+.slot{width:50px;height:50px;flex:0 0 auto;border:1px solid #ffffff40;border-radius:9px;background:#111c;display:grid;place-items:center;position:relative;font-size:20px;cursor:pointer;transition:transform .1s,background .15s}
+.slot:hover{background:#ffffff1a}
+.slot small{position:absolute;bottom:2px;right:4px;font-size:10px;font-weight:700;text-shadow:0 1px 3px #000}
+.slot span.key{position:absolute;top:2px;left:4px;font-size:9px;color:#ffffff80}
+.slot.active{outline:2px solid var(--gold);background:#ffffff28;transform:translateY(-2px)}
+
+/* Quick Actions (Desktop: über der unteren Leiste) */
+#actions{position:fixed;right:12px;bottom:80px;display:flex;flex-direction:column;gap:7px;z-index:2}
+button{border:1px solid #ffffff40;border-radius:9px;background:#172020e0;color:#fff;padding:9px 12px;font-weight:650;font-size:12px;cursor:pointer;transition:background .15s,transform .08s}
+button:hover:not(:disabled){background:#243333f0}
+button:active:not(:disabled){transform:scale(.96)}
+button:disabled{opacity:.45;cursor:default}
+button.modeActive{background:#2d5a47;border-color:#79cfa8;color:#d6ffe7}
+
+/* Minecraft-style Inventory & Crafting Modal */
+#inventory{display:none;position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:min(880px,96vw);max-height:91vh;overflow-y:auto;padding:16px;z-index:4}
+.invHeader{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.invHeader h2{margin:0;letter-spacing:.1em;font-size:15px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabBtn{padding:6px 11px;font-size:12px;background:#ffffff12}
+.tabBtn.active{background:#a9473e;border-color:#e47b71}
+
+.invSearchBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+#invSearch{flex:1;min-width:170px;padding:7px 11px;border-radius:8px;border:1px solid #ffffff30;background:#090e10cc;color:#fff;font-size:12.5px;outline:none;user-select:text;-webkit-user-select:text}
+#invSearch:focus{border-color:var(--gold)}
+
+.invControls{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+.filterRow{display:flex;gap:5px;flex-wrap:wrap}
+.fltBtn{padding:5px 9px;font-size:11px;background:#ffffff10;border-radius:7px}
+.fltBtn.active{background:#2d5a47;border-color:#79cfa8}
+
+/* Minecraft Item Grid */
+#invgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:6px;max-height:42vh;overflow-y:auto;padding:5px;background:#070b0d88;border:1px solid #ffffff1a;border-radius:10px;margin:6px 0 10px}
+.invitem{padding:6px 5px;text-align:center;background:#1a2224cc;border:1px solid #ffffff1e;border-radius:8px;font-size:11px;display:flex;flex-direction:column;justify-content:space-between;gap:2px;cursor:pointer;transition:border-color .12s,background .12s,transform .08s}
+.invitem:hover{border-color:var(--gold);background:#263235ee;transform:translateY(-1px)}
+.invitem.hasItem{border-color:#ffffff36}
+.invitem.inHotbar{box-shadow:inset 0 0 0 1.5px rgba(231,216,166,.55)}
+.invitem .ico{font-size:21px;line-height:1.1}
+.invitem .iname{font-weight:700;color:#f3efe4;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.invitem .icat{font-size:8.5px;color:#9ea9a1}
+.invitem .icnt{font-size:11.5px;font-weight:800;color:var(--gold)}
+.invitem .iacts{display:flex;gap:3px;justify-content:center;flex-wrap:wrap;margin-top:2px}
+.invMiniBtn{padding:3px 6px;font-size:9px;border-radius:5px;background:#263838}
+
+/* Modal Hotbar Preview */
+.modalHotbarWrap{background:#0b1113cc;border:1px solid #ffffff24;border-radius:10px;padding:8px 10px;margin-bottom:10px}
+.modalHotbarTitle{font-size:10px;letter-spacing:.08em;color:var(--gold);font-weight:700;margin-bottom:6px;display:flex;justify-content:space-between}
+#modalHotbar{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
+.mSlot{width:48px;height:48px;flex:0 0 auto;border:1px solid #ffffff38;border-radius:8px;background:#141d1f;display:grid;place-items:center;position:relative;font-size:19px;cursor:pointer}
+.mSlot.active{outline:2px solid var(--gold);background:#ffffff24}
+.mSlot span.key{position:absolute;top:2px;left:4px;font-size:8.5px;color:#ffffff80}
+.mSlot small{position:absolute;bottom:2px;right:4px;font-size:9.5px;font-weight:700}
+
+.recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:7px;margin-top:6px;max-height:46vh;overflow-y:auto;padding-right:2px}
+.recipe{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:#ffffff0d;border:1px solid #ffffff1a;font-size:11.5px}
+.recipe b{display:block;font-size:12px;color:#f3e9d1}
+.recipe small{color:#bfc5bd;font-size:10.5px}
+.saveRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #ffffff1a;justify-content:space-between;align-items:center}
+
+/* Toast & Damage Flash */
+#message{position:fixed;left:50%;bottom:78px;transform:translateX(-50%);background:#101818eb;border:1px solid #ffffff28;padding:7px 14px;border-radius:20px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:3;font-size:12.5px;white-space:nowrap}
+#hurtFlash{position:fixed;inset:0;background:radial-gradient(circle,transparent 55%,rgba(217,50,40,.45));pointer-events:none;opacity:0;transition:opacity .25s;z-index:1}
+
+/* Start & Game Over Screen */
+#start{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#142628cc,#080d10ee);z-index:5;padding:16px}
+#start .card{width:min(540px,94vw);padding:26px;text-align:center}
+#start h1{font-size:clamp(30px,7vw,52px);letter-spacing:.14em;margin:0;color:#f3e9d1}
+#start p{color:#d0d3cb;line-height:1.55;font-size:13.5px}
+.startBtns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.nameInput{margin-top:10px;padding:8px 12px;border-radius:9px;border:1px solid #ffffff38;background:#090e10cc;color:#fff;font-size:13px;text-align:center;width:min(260px,80vw);outline:none;user-select:text;-webkit-user-select:text}
+.nameInput:focus{border-color:var(--gold)}
+
+/* Touch Analog Joystick & Jump/Descend */
+#touch{display:none;position:fixed;left:12px;bottom:78px;width:214px;height:118px;z-index:3;align-items:center;gap:8px}
+#joystickBase{position:relative;width:104px;height:104px;flex:0 0 auto;border-radius:50%;background:rgba(17,28,30,.72);border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 0 18px #0008;touch-action:none}
+#joystickKnob{position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f5ebd0,#b89b62);border:1px solid rgba(255,255,255,.5);box-shadow:0 4px 12px #000a;pointer-events:none;transition:transform .04s linear}
+.vertTouchCol{display:flex;flex-direction:column;gap:8px;align-items:center}
+#jump{width:46px;height:46px;padding:0;font-size:16px;border-radius:50%;touch-action:none;background:#263737e8;flex:0 0 auto}
+#descendBtn{display:none;width:44px;height:44px;padding:0;font-size:15px;border-radius:50%;touch-action:none;background:#1e3644e8;border-color:#74c0eb;flex:0 0 auto}
+#descendBtn.visible{display:grid;place-items:center}
+
+/* Mobiler Aktionsstapel rechts unten: Kreativ & Inventar direkt über Bauen */
+#mobileActions{display:none;position:fixed;right:10px;bottom:78px;z-index:3;gap:6px;flex-direction:column;align-items:stretch}
+#mobileActions button{min-width:102px;min-height:40px;touch-action:none;background:#172020e8;font-size:11.5px;padding:7px 10px}
+#looktip{display:none;position:fixed;right:118px;top:50%;transform:translateY(-50%);font-size:9px;color:#fff7;text-shadow:0 1px 4px #000;pointer-events:none;writing-mode:vertical-rl;letter-spacing:.1em}
+
+@media(pointer:coarse){
+  #touch{display:flex}
+  #mobileActions,#looktip{display:flex}
+  #hint{display:none}
+  #actions{display:none}
+  #bottom{bottom:8px}
+}
+@media(max-width:920px){
+  #hint{display:none}
+}
+@media(max-width:700px){
+  #brand{padding:7px 10px;font-size:11.5px;letter-spacing:.1em}
+  #stats{min-width:156px;padding:7px 9px;font-size:10.5px}
+  #questPanel{max-width:210px;padding:7px 9px;font-size:11px}
+  .slot{width:40px;height:42px;font-size:17px}
+}
+
+/* Querformat-Sperre & aufgeräumtes HUD für Mobilgeräte */
+#rotateOverlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:radial-gradient(circle at center,#122224fa,#070b0dfc);
+  z-index:20;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:24px;
+}
+#rotateIcon{
+  font-size:56px;
+  margin-bottom:14px;
+  animation:rotatePhone 1.8s ease-in-out infinite;
+}
+@keyframes rotatePhone{
+  0%,100%{transform:rotate(0deg)}
+  50%{transform:rotate(-90deg)}
+}
+@media(pointer:coarse) and (orientation:portrait){
+  #rotateOverlay{display:flex}
+}
+@media(pointer:coarse) and (orientation:landscape){
+  #top{top:5px;left:7px;right:7px;gap:5px}
+  #topLeft{flex-direction:column;align-items:flex-start;max-width:168px;gap:3px}
+  #brand{padding:3px 7px;font-size:8.5px;letter-spacing:.08em;gap:3px;border-radius:7px}
+  #brand .badge{font-size:7.5px;padding:1px 4px}
+  #questPanel{padding:4px 7px;max-width:162px;font-size:8.5px;border-radius:7px;line-height:1.2}
+  .qtitle{font-size:7.5px;margin-bottom:1px}
+  #questText{font-size:8.5px}
+  #questProg{font-size:7.5px;margin-top:1px}
+  #stats{padding:4px 7px;min-width:112px;font-size:8.5px;border-radius:7px}
+  .bar{height:3px;margin:2px 0 3px}
+  #buffs{display:none}
+  #touch{left:7px;bottom:7px;width:154px;height:84px;gap:5px}
+  #joystickBase{width:70px;height:70px}
+  #joystickKnob{width:28px;height:28px;margin:-14px 0 0 -14px}
+  #jump{width:34px;height:34px;font-size:12px}
+  #descendBtn{width:32px;height:32px;font-size:11px}
+  /* Reihenfolge von oben nach unten: Kreativ -> Inventar -> Abbauen -> Bauen -> Essen */
+  #mobileActions{right:7px;bottom:7px;gap:3px}
+  #mobileActions button{min-width:84px;min-height:26px;padding:3px 7px;font-size:9px;border-radius:6px}
+  #looktip{display:none!important}
+  #bottom{bottom:7px;padding:3px;gap:2.5px;max-width:calc(100vw - 252px);border-radius:8px}
+  .slot{width:29px;height:29px;font-size:13px;border-radius:6px}
+  .slot small{font-size:7px;bottom:0;right:2px}
+  .slot span.key{font-size:6.5px;top:0;left:2px}
+}
+
+.stationBanner{padding:8px 11px;border-radius:9px;background:#ffffff0d;border:1px solid #ffffff22;font-size:11.5px;color:#d9e2dc;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.stationBanner.active{border-color:#ff8c3b;background:#3a1e1066;color:#ffe6cf}
+.cookProgressWrap{width:100%;height:7px;background:#00000066;border-radius:99px;overflow:hidden;margin-top:6px;border:1px solid #ffffff22}
+.cookProgressFill{height:100%;width:0%;background:linear-gradient(90deg,#e05a2b,#ffbe42);transition:width .1s linear}
+.recipeMeta{display:flex;flex-direction:column;gap:2px;flex:1}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hurtFlash"></div>
+
+<div id="top">
+  <div id="topLeft">
+    <div id="brand" class="panel">
+      <span>WILDLANDS <span id="modeSub" style="color:#d96b5e">/ SURVIVAL</span></span>
+      <span id="creativeBadge" class="badge creative" style="display:none">✨ KREATIV</span>
+      <span id="flyBadge" class="badge fly" style="display:none">🕊 FLUG</span>
+      <span id="mpBadge" class="badge mp">🌐 OFFLINE</span>
+      <span id="daybadge" class="badge">TAG 1 · MORGEN</span>
+      <span id="weatherBadge" class="badge">☀️ KLAR</span>
+    </div>
+    <div id="questPanel" class="panel" title="Klicken für Quest-Details">
+      <div class="qtitle"><span>★ AUFGABE <span id="questNum">1/6</span></span><span id="questRewardBadge">+Belohnung</span></div>
+      <div id="questText">Sammle 4× Holz &amp; 3× Stein</div>
+      <div id="questProg">Holz: 0/4 · Stein: 0/3</div>
+    </div>
+  </div>
+
+  <div id="stats" class="panel">
+    <div class="statrow"><span>♥ LEBEN</span><b id="hpv">100</b></div>
+    <div class="bar"><div id="hp" class="fill"></div></div>
+    <div class="statrow"><span>◆ HUNGER</span><b id="hv">100</b></div>
+    <div class="bar"><div id="hunger" class="fill" style="background:#c69b51"></div></div>
+    <div class="statrow"><span>🌡 WÄRME</span><b id="tv">100%</b></div>
+    <div class="bar"><div id="temp" class="fill" style="background:#58a6d8"></div></div>
+    <div id="buffs"></div>
+  </div>
+</div>
+
+<div id="hint" class="panel">WASD Laufen · 3× Space = Fliegen · Linksklick Abbau · Rechtsklick Bauen / Türen öffnen · F Essen · E Inventar</div>
+<div id="cross">+</div>
+<div id="targetLabel"></div>
+<div id="mineBarWrap"><div id="mineBar"></div></div>
+
+<div id="bottom" class="panel"></div>
+
+<!-- Desktop-Buttons über der unteren Leiste -->
+<div id="actions">
+  <button id="creativeToggleBtn" title="Kreativmodus an/aus [C]">✨ Kreativ</button>
+  <button id="invbtn">🎒 Inventar [E]</button>
+  <button id="eatQuickBtn" title="Nahrung essen [F]">🍎 Essen [F]</button>
+  <button id="muteBtn" title="Ton an/aus">🔊 Ton</button>
+</div>
+
+<div id="touch" aria-label="Touch-Steuerung">
+  <div id="joystickBase">
+    <div id="joystickKnob"></div>
+  </div>
+  <div class="vertTouchCol">
+    <button id="jump" title="Springen / 3× = Fliegen / Hoch">⤒</button>
+    <button id="descendBtn" title="Sinken im Flugmodus">⤓</button>
+  </div>
+</div>
+
+<!-- Mobil-Buttons: Kreativ & Inventar direkt über Bauen -->
+<div id="mobileActions">
+  <button id="mobileCreativeBtn" title="Kreativmodus an/aus [C]">✨ Kreativ</button>
+  <button id="mobileInvBtn" title="Inventar öffnen [E]">🎒 Inventar</button>
+  <button id="mineBtn">⛏ Abbauen</button>
+  <button id="buildBtn">▧ Bauen / Tür</button>
+  <button id="mobileEatBtn">🍎 Essen</button>
+</div>
+<div id="looktip">WISCHEN ZUM UMSCHAUEN</div>
+
+<div id="message"></div>
+
+<div id="inventory" class="panel">
+  <div class="invHeader">
+    <h2>🎒 MINECRAFT-INVENTAR &amp; CRAFTING</h2>
+    <div class="tabs">
+      <button class="tabBtn active" data-tab="items">📦 Inventar</button>
+      <button class="tabBtn" data-tab="craft">⚒ Werkbank</button>
+      <button class="tabBtn" data-tab="smelt">🔥 Ofen &amp; Küche</button>
+      <button id="closeinv">✕ [E]</button>
+    </div>
+  </div>
+
+  <div id="tab-items">
+    <div class="invSearchBar">
+      <input id="invSearch" type="search" placeholder="🔍 Block, Tür oder Möbel suchen (z. B. Tür, Bett, Tisch, Sofa, Thron, Schrank...)">
+      <span id="invSummary" style="font-size:11px;color:#c5cec7">Items: 0</span>
+    </div>
+
+    <div class="invControls">
+      <div class="filterRow">
+        <button class="fltBtn active" data-filter="all" id="flt-all">Alle (113)</button>
+        <button class="fltBtn" data-filter="furniture">🛋️ Möbel &amp; Türen</button>
+        <button class="fltBtn" data-filter="blocks">🧱 Baublöcke</button>
+        <button class="fltBtn" data-filter="decor">🏮 Licht &amp; Deko</button>
+        <button class="fltBtn" data-filter="nature">🌸 Natur</button>
+        <button class="fltBtn" data-filter="ores">💎 Erze &amp; Rohstoffe</button>
+        <button class="fltBtn" data-filter="tools">⚔️ Werkzeuge</button>
+        <button class="fltBtn" data-filter="food">🍖 Nahrung &amp; Tränke</button>
+      </div>
+    </div>
+
+    <div id="invgrid"></div>
+
+    <div class="modalHotbarWrap">
+      <div class="modalHotbarTitle">
+        <span>HOTBAR (SLOTS 1–9) — KLICKE EIN ITEM OBEN, UM ES IN DEN AKTIVEN SLOT ZU LEGEN</span>
+        <span id="activeSlotHint">Aktiver Slot: 1</span>
+      </div>
+      <div id="modalHotbar"></div>
+    </div>
+  </div>
+
+  <div id="tab-craft" class="recipes" style="display:none">
+    <div class="recipe"><div><b>🚪 2× Holztür (Interaktiv)</b><small>4× Holzbretter · Rechtsklick öffnet/schließt</small></div><button data-craft="wood_door">Herstellen</button></div>
+    <div class="recipe"><div><b>🚪 2× Edle Eichentür</b><small>4× Holzstamm · Dunkles Hartholz</small></div><button data-craft="oak_door">Herstellen</button></div>
+    <div class="recipe"><div><b>🚪 2× Eisentür (Interaktiv)</b><small>4× Eisenbarren · Sicherheits-Tür</small></div><button data-craft="iron_door">Herstellen</button></div>
+    <div class="recipe"><div><b>🪵 2× Falltür</b><small>3× Holzbretter · Klappt auf/zu</small></div><button data-craft="trapdoor">Herstellen</button></div>
+    <div class="recipe"><div><b>🚧 2× Gartentor</b><small>2× Holzbretter, 2× Holz · Durchgang</small></div><button data-craft="fence_gate">Herstellen</button></div>
+    <div class="recipe"><div><b>🪑 2× Holzstuhl</b><small>3× Holzbretter · Sitzmöbel</small></div><button data-craft="chair">Herstellen</button></div>
+    <div class="recipe"><div><b>🪵 Holztisch</b><small>4× Holzbretter · Esstisch</small></div><button data-craft="table">Herstellen</button></div>
+    <div class="recipe"><div><b>🛋️ Rotes Sofa</b><small>3× Rote Wolle, 2× Holzbretter</small></div><button data-craft="sofa">Herstellen</button></div>
+    <div class="recipe"><div><b>🛏️ Rotes Bett</b><small>3× Rote Wolle, 3× Holzbretter</small></div><button data-craft="bed_red">Herstellen</button></div>
+    <div class="recipe"><div><b>🛏️ Blaues Bett</b><small>3× Blaue Wolle, 3× Holzbretter</small></div><button data-craft="bed_blue">Herstellen</button></div>
+    <div class="recipe"><div><b>🚪 Kleiderschrank</b><small>6× Holzbretter, 1× Eisenbarren</small></div><button data-craft="wardrobe">Herstellen</button></div>
+    <div class="recipe"><div><b>🗄️ Küchenschrank</b><small>4× Holzbretter, 2× Stein</small></div><button data-craft="cabinet">Herstellen</button></div>
+    <div class="recipe"><div><b>👑 Königsthron</b><small>4× Goldbarren, 2× Rote Wolle</small></div><button data-craft="throne">Herstellen</button></div>
+    <div class="recipe"><div><b>🟥 4× Roter Teppich</b><small>2× Rote Wolle · Bodenbelag</small></div><button data-craft="carpet_red">Herstellen</button></div>
+    <div class="recipe"><div><b>🟦 4× Blauer Teppich</b><small>2× Blaue Wolle · Bodenbelag</small></div><button data-craft="carpet_blue">Herstellen</button></div>
+    <div class="recipe"><div><b>🪴 Blumentopf</b><small>2× Ziegelstein, 1× Mohnblume</small></div><button data-craft="flower_pot">Herstellen</button></div>
+    <div class="recipe"><div><b>🖼️ Gemälde-Block</b><small>2× Holzbretter, 1× Weiße Wolle</small></div><button data-craft="painting">Herstellen</button></div>
+    <div class="recipe"><div><b>🕰️ Standuhr</b><small>4× Holzbretter, 1× Goldbarren</small></div><button data-craft="clock_block">Herstellen</button></div>
+    <div class="recipe"><div><b>🪞 Wandspiegel</b><small>2× Glasblock, 2× Eisenbarren</small></div><button data-craft="mirror">Herstellen</button></div>
+    <div class="recipe"><div><b>🛢️ Holzfass</b><small>5× Holzbretter, 1× Eisenbarren</small></div><button data-craft="barrel">Herstellen</button></div>
+    <div class="recipe"><div><b>⚒️ Amboss</b><small>4× Eisenbarren, 3× Stein</small></div><button data-craft="anvil">Herstellen</button></div>
+    <div class="recipe"><div><b>4× Holzbretter</b><small>1× Holz · Bauen &amp; Unterschlupf</small></div><button data-craft="plank">Herstellen</button></div>
+    <div class="recipe"><div><b>4× Pflasterstein</b><small>2× Stein · Robuster Mauerstein</small></div><button data-craft="cobble">Herstellen</button></div>
+    <div class="recipe"><div><b>4× Steinziegel</b><small>4× Stein · Edler Festungsstein</small></div><button data-craft="stone_brick">Herstellen</button></div>
+    <div class="recipe"><div><b>4× Bemooste Steinziegel</b><small>2× Steinziegel, 1× Laub</small></div><button data-craft="mossy_brick">Herstellen</button></div>
+    <div class="recipe"><div><b>4× Ziegelstein</b><small>2× Erde, 1× Kohle · Klassischer Ziegel</small></div><button data-craft="brick">Herstellen</button></div>
+    <div class="recipe"><div><b>4× Sandstein</b><small>4× Sand · Wüstenbaustein</small></div><button data-craft="sandstone">Herstellen</button></div>
+    <div class="recipe"><div><b>4× Glasblock</b><small>2× Sand, 1× Kohle · Transparente Fenster</small></div><button data-craft="glass">Herstellen</button></div>
+    <div class="recipe"><div><b>📚 Bücherregal</b><small>4× Holzbretter, 2× Holz · Dekoration</small></div><button data-craft="bookshelf">Herstellen</button></div>
+    <div class="recipe"><div><b>📦 Vorratstruhe</b><small>6× Holzbretter · Dekorativer Lagerblock</small></div><button data-craft="chest">Herstellen</button></div>
+    <div class="recipe"><div><b>⚒ Werkbank-Block</b><small>4× Holzbretter · Platzierbar</small></div><button data-craft="workbench">Herstellen</button></div>
+    <div class="recipe"><div><b>🪵 4× Zaunblock</b><small>4× Holzbretter, 2× Holz</small></div><button data-craft="fence">Herstellen</button></div>
+    <div class="recipe"><div><b>⬜ 4× Weiße Wolle</b><small>2× Laub, 1× Holz · Weicher Baublock</small></div><button data-craft="wool_white">Herstellen</button></div>
+    <div class="recipe"><div><b>🟥 4× Rote Wolle</b><small>2× Weiße Wolle, 1× Apfel</small></div><button data-craft="wool_red">Herstellen</button></div>
+    <div class="recipe"><div><b>🟦 4× Blaue Wolle</b><small>2× Weiße Wolle, 1× Eis</small></div><button data-craft="wool_blue">Herstellen</button></div>
+    <div class="recipe"><div><b>🟩 4× Grüne Wolle</b><small>2× Weiße Wolle, 1× Waldpilz</small></div><button data-craft="wool_green">Herstellen</button></div>
+    <div class="recipe"><div><b>🟨 4× Gelbe Wolle</b><small>2× Weiße Wolle, 1× Löwenzahn</small></div><button data-craft="wool_yellow">Herstellen</button></div>
+    <div class="recipe"><div><b>🟪 4× Lila Wolle</b><small>2× Weiße Wolle, 1× Amethystsplitter</small></div><button data-craft="wool_purple">Herstellen</button></div>
+    <div class="recipe"><div><b>🏮 Laterne</b><small>1× Eisenbarren, 1× Fackel · Helles Licht</small></div><button data-craft="lantern">Herstellen</button></div>
+    <div class="recipe"><div><b>✨ Glowstone</b><small>2× Goldbarren, 2× Glasblock · Starkes Licht</small></div><button data-craft="glowstone">Herstellen</button></div>
+    <div class="recipe"><div><b>💠 Seelaterne</b><small>2× Quarz, 2× Glasblock · Blaues Licht</small></div><button data-craft="sea_lantern">Herstellen</button></div>
+    <div class="recipe"><div><b>🎃 Kürbislaterne</b><small>1× Kürbis, 1× Fackel · Leuchtender Kürbis</small></div><button data-craft="jack_o_lantern">Herstellen</button></div>
+    <div class="recipe"><div><b>🪜 4× Leiterblock</b><small>3× Holz · Zum Klettern &amp; Bauen</small></div><button data-craft="ladder">Herstellen</button></div>
+    <div class="recipe"><div><b>🧨 TNT-Block</b><small>3× Sand, 2× Schießpulver · Deko/Block</small></div><button data-craft="tnt">Herstellen</button></div>
+    <div class="recipe"><div><b>🟨 Goldblock</b><small>4× Goldbarren · Edler Baublock</small></div><button data-craft="gold_block">Herstellen</button></div>
+    <div class="recipe"><div><b>💠 Diamantblock</b><small>4× Diamant · Glanzblock</small></div><button data-craft="diamond_block">Herstellen</button></div>
+    <div class="recipe"><div><b>💚 Smaragdblock</b><small>4× Smaragd · Königlicher Block</small></div><button data-craft="emerald_block">Herstellen</button></div>
+    <div class="recipe"><div><b>⬜ Quarzblock</b><small>4× Quarz · Edler Marmor-Look</small></div><button data-craft="quartz_block">Herstellen</button></div>
+    <div class="recipe"><div><b>🟪 2× Obsidian</b><small>4× Stein, 2× Kohle · Extrem hart</small></div><button data-craft="obsidian">Herstellen</button></div>
+    <div class="recipe"><div><b>⛏ Steinspitzhacke <span id="st-stonePick"></span></b><small>3× Stein, 2× Holz · Baut Erze ab</small></div><button data-craft="stonePick">Herstellen</button></div>
+    <div class="recipe"><div><b>🔩 Eisenspitzhacke <span id="st-ironPick"></span></b><small>3× Eisenbarren, 2× Holz · 2× Erz</small></div><button data-craft="ironPick">Herstellen</button></div>
+    <div class="recipe"><div><b>💎 Diamantspitzhacke <span id="st-diamondPick"></span></b><small>3× Diamant, 2× Holz · 3× Erz</small></div><button data-craft="diamondPick">Herstellen</button></div>
+    <div class="recipe"><div><b>💚 Smaragdspitzhacke <span id="st-emeraldPick"></span></b><small>3× Smaragd, 2× Holz · Blitzabbau &amp; 4× Erz</small></div><button data-craft="emeraldPick">Herstellen</button></div>
+    <div class="recipe"><div><b>⚔️ Eisenklinge <span id="st-sword"></span></b><small>2× Eisenbarren, 1× Holz · Hoher Schaden</small></div><button data-craft="sword">Herstellen</button></div>
+    <div class="recipe"><div><b>🗡 Diamantschwert <span id="st-diamondSword"></span></b><small>2× Diamant, 1× Holz · Starke Klinge</small></div><button data-craft="diamondSword">Herstellen</button></div>
+    <div class="recipe"><div><b>🔰 Smaragdschwert <span id="st-emeraldSword"></span></b><small>2× Smaragd, 1× Holz · Maximale Kraft</small></div><button data-craft="emeraldSword">Herstellen</button></div>
+    <div class="recipe"><div><b>🕯 4× Fackeln</b><small>1× Holz, 1× Kohle · Licht &amp; vertreibt Gegner</small></div><button data-craft="torch">Herstellen</button></div>
+    <div class="recipe"><div><b>🔥 Lagerfeuer</b><small>3× Holz, 2× Stein · Starke Wärme &amp; Heilung</small></div><button data-craft="campfire">Herstellen</button></div>
+    <div class="recipe"><div><b>🧱 Schmelzofen</b><small>6× Stein · Platzierbar &amp; schmilzt Erze</small></div><button data-craft="furnace">Herstellen</button></div>
+    <div class="recipe"><div><b>🍞 2× Brot</b><small>3× Apfel · Sättigender Reiseproviant</small></div><button data-craft="bread">Herstellen</button></div>
+    <div class="recipe"><div><b>🥧 Kürbiskuchen</b><small>1× Kürbis, 1× Apfel · Sehr nahrhaft</small></div><button data-craft="pumpkin_pie">Herstellen</button></div>
+    <div class="recipe"><div><b>🍏 Goldener Apfel</b><small>1× Apfel, 2× Goldbarren · Volle Heilung</small></div><button data-craft="golden_apple">Herstellen</button></div>
+    <div class="recipe"><div><b>🧪 Heiltrank</b><small>1× Glasblock, 1× Apfel, 1× Mohnblume</small></div><button data-craft="potion_heal">Brauen</button></div>
+    <div class="recipe"><div><b>⚡ Eile-Trank (Abbau-Boost)</b><small>1× Glasblock, 1× Goldbarren, 1× Kohle</small></div><button data-craft="potion_haste">Brauen</button></div>
+  </div>
+
+  <div id="tab-smelt" class="recipes" style="display:none">
+    <div class="recipe"><div><b>🔩 Eisenbarren schmelzen</b><small>Benötigt: 1× Eisenerz + 1× Kohle (oder 2× Holz)</small></div><button data-craft="smeltIron">Schmelzen</button></div>
+    <div class="recipe"><div><b>🥇 Goldbarren schmelzen</b><small>Benötigt: 1× Golderz + 1× Kohle (oder 2× Holz)</small></div><button data-craft="smeltGold">Schmelzen</button></div>
+    <div class="recipe"><div><b>🥉 Kupferbarren schmelzen</b><small>Benötigt: 1× Kupfererz + 1× Kohle (oder 2× Holz)</small></div><button data-craft="smeltCopper">Schmelzen</button></div>
+    <div class="recipe"><div><b>🍖 Gebratener Pilz (+42 Hunger, +22 HP)</b><small>Benötigt: 1× Waldpilz + 1× Holz (oder Kohle)</small></div><button data-craft="cookMushroom">Braten</button></div>
+    <div class="recipe"><div><b>🥧 Bratapfel (+38 Hunger, +20 HP)</b><small>Benötigt: 1× Apfel + 1× Holz</small></div><button data-craft="cookApple">Braten</button></div>
+    <div class="recipe"><div><b>🥔 Ofenkartoffel (+40 Hunger, +18 HP)</b><small>Benötigt: 1× Kartoffel + 1× Holz</small></div><button data-craft="cookPotato">Braten</button></div>
+    <div class="recipe"><div class="recipeMeta"><b>🔥 Holzkohle brennen (3.5s)</b><small>Benötigt: 2× Holz → ergibt 2× Kohle</small></div><button data-cook="charcoal">Brennen</button></div>
+    <div id="stationBanner" class="stationBanner" style="grid-column:1 / -1">
+      <div>
+        <b id="stationStatusTitle">🔥 Ofen &amp; Küche bereit</b>
+        <div id="stationStatusSub" style="font-size:11px;color:#bcc6be">Starte einen Schmelz- oder Kochvorgang – läuft automatisch weiter und füllt das Inventar.</div>
+        <div class="cookProgressWrap"><div id="cookProgressBar" class="cookProgressFill"></div></div>
+        <div style="margin-top:4px;font-size:10.5px;color:#9fd3f5">
+          <span id="avail-smeltIron"></span> · <span id="avail-cookMushroom"></span> · <span id="avail-cookApple"></span> · <span id="avail-charcoal"></span>
+        </div>
+      </div>
+      <button id="cancelCookBtn" style="display:none;background:#5c2420;padding:6px 10px;font-size:11px">Abbrechen</button>
+    </div>
+  </div>
+
+  <div class="saveRow">
+    <span id="saveStatus" style="font-size:11px;color:#aeb6ae">Auto-Save alle 30s aktiv</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button id="saveNowBtn">💾 Speichern</button>
+      <button id="resetSaveBtn" style="background:#5c2420">🗑 Neuer Spielstand</button>
+    </div>
+  </div>
+</div>
+
+<div id="start">
+  <div class="card panel">
+    <h1 id="startTitle">WILDLANDS</h1>
+    <p id="startText">Erkunde eine unendliche Voxel-Wildnis mit Tag-Nacht-Zyklus und Wetter. Baue Holz, Stein &amp; Erze ab, richte Häuser mit über 110 Blöcken, interaktiven Türen &amp; Möbeln ein und trotze den Schattenwesen der Nacht.</p>
+    <div>
+      <input id="playerNameInput" class="nameInput" type="text" maxlength="16" placeholder="Dein Spielername (optional)">
+    </div>
+    <div class="startBtns">
+      <button id="play" type="button" style="background:#a9473e;padding:13px 26px;font-size:14px">WELT BETRETEN</button>
+      <button id="startCreativeBtn" type="button" style="background:#2d5a47;border-color:#79cfa8;padding:13px 22px;font-size:14px">✨ KREATIVMODUS</button>
+      <button id="loadStartBtn" type="button" style="display:none;background:#2f5946;padding:13px 22px;font-size:14px">💾 SPIELSTAND LADEN</button>
+    </div>
+    <p style="font-size:11px;margin-top:14px;color:#aeb4ac">
+      Desktop: Linksklick halten = Abbauen · Rechtsklick = Bauen &amp; Türen öffnen/schließen · 3× Space = Fliegen · F = Essen · E = Inventar<br>
+      Mobil: Links Touch-Joystick · 3× ⤒ = Fliegen · Rechts Wischen &amp; Aktionen
+    </p>
+  </div>
+</div>
+
+<div id="rotateOverlay">
+  <div id="rotateIcon">📱</div>
+  <h2 style="margin:0 0 8px;letter-spacing:.1em;color:#f3e9d1">BITTE QUERFORMAT NUTZEN</h2>
+  <p style="color:#cfd5cd;max-width:300px;margin:0 0 16px;line-height:1.5">WILDLANDS ist für das Querformat optimiert. Drehe dein Gerät um 90°, um weiterzuspielen.</p>
+  <button id="forceLandscapeBtn" style="background:#a9473e;padding:11px 20px">🔄 Vollbild &amp; Querformat aktivieren</button>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+let firebaseMod = null;
+try {
+  firebaseMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+  const dbMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+  firebaseMod = { ...firebaseMod, ...dbMod };
+} catch (_) {
+  firebaseMod = null;
+}
+
+/* =========================================================
+   0. FIREBASE MULTIPLAYER KONFIGURATION (wildnis-1b510)
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyB9gOvCJ2XbrQF2fxiFQe7Lv_AZbl1whjY",
+  authDomain: "wildnis-1b510.firebaseapp.com",
+  databaseURL: "https://wildnis-1b510-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "wildnis-1b510",
+  storageBucket: "wildnis-1b510.firebasestorage.app",
+  messagingSenderId: "1017880440102",
+  appId: "1:1017880440102:web:f209c4435f3d677ada25e7",
+  measurementId: "G-52JFBGP30C"
+};
+
+const WORLD_ID = 'main';
+const mpBadgeEl = document.querySelector('#mpBadge');
+
+let db = null;
+let mpEnabled = false;
+let myPlayerId = null;
+let myPlayerRef = null;
+let myPlayerName = '';
+const remotePlayers = new Map();
+
+function setMpBadge(text, online = false) {
+  if (!mpBadgeEl) return;
+  mpBadgeEl.textContent = text;
+  mpBadgeEl.style.background = online ? '#2d5a4744' : '#ffffff18';
+  mpBadgeEl.style.color = online ? '#9df0a8' : '#bce6ff';
+  mpBadgeEl.style.borderColor = online ? '#79cfa888' : '#58a6d855';
+}
+
+function makeNameSprite(label) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(10, 15, 18, 0.72)';
+  ctx.fillRect(16, 12, 224, 40);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.strokeRect(16, 12, 224, 40);
+  ctx.fillStyle = '#f4f3ed';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label.slice(0, 16), 128, 32);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.6, 0.4, 1);
+  sprite.position.set(0, 2.45, 0);
+  return sprite;
+}
+
+function createRemotePlayerMesh(name) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.6, 1.65, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x4ea8de, roughness: 0.7 })
+  );
+  body.position.y = 0.825;
+  body.castShadow = true;
+
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.55, 0.55),
+    new THREE.MeshStandardMaterial({ color: 0xf2c69b, roughness: 0.8 })
+  );
+  head.position.y = 1.92;
+  head.castShadow = true;
+
+  const tag = makeNameSprite(name || 'Spieler');
+  group.add(body, head, tag);
+  return group;
+}
+
+let mpListenersStarted = false;
+
+function initFirebaseMultiplayer() {
+  if (!firebaseMod || !firebaseMod.initializeApp || !firebaseMod.getDatabase || !firebaseConfig.databaseURL || !firebaseConfig.apiKey) {
+    setMpBadge('🌐 OFFLINE', false);
+    return;
+  }
+
+  try {
+    const { initializeApp, getDatabase, ref, set, onChildAdded, onChildChanged, onChildRemoved, onDisconnect } = firebaseMod;
+    const app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+    mpEnabled = true;
+
+    const inputEl = document.querySelector('#playerNameInput');
+    const typed = (inputEl && inputEl.value ? inputEl.value.trim() : '');
+    if (!myPlayerId) {
+      myPlayerId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().slice(0, 8)
+        : Math.random().toString(36).slice(2, 10);
+    }
+    myPlayerName = typed || `Spieler_${myPlayerId.slice(0, 4)}`;
+    myPlayerRef = ref(db, `worlds/${WORLD_ID}/players/${myPlayerId}`);
+
+    onDisconnect(myPlayerRef).remove();
+    set(myPlayerRef, {
+      name: myPlayerName,
+      x: Number(player.x.toFixed(2)),
+      y: Number(player.y.toFixed(2)),
+      z: Number(player.z.toFixed(2)),
+      yaw: Number(yaw.toFixed(2)),
+      pitch: Number(pitch.toFixed(2)),
+      flying: player.flying,
+      creativeMode: state.creativeMode,
+      lastSeen: Date.now()
+    });
+
+    setMpBadge(`🌐 LIVE (${myPlayerName})`, true);
+
+    if (!mpListenersStarted) {
+      mpListenersStarted = true;
+      const blocksRef = ref(db, `worlds/${WORLD_ID}/blocks`);
+      const playersRef = ref(db, `worlds/${WORLD_ID}/players`);
+
+      const handleBlockSnap = (snap) => {
+        const k = snap.key;
+        const val = snap.val();
+        if (!k) return;
+        const [bx, by, bz] = k.split(',').map(Number);
+        if (worldDeltas.get(k) === val) return;
+        setWorldBlock(bx, by, bz, val, true);
+      };
+
+      onChildAdded(blocksRef, handleBlockSnap);
+      onChildChanged(blocksRef, handleBlockSnap);
+      onChildRemoved(blocksRef, (snap) => {
+        const k = snap.key;
+        if (!k) return;
+        const [bx, by, bz] = k.split(',').map(Number);
+        if (worldDeltas.get(k) !== null) {
+          setWorldBlock(bx, by, bz, null, true);
+        }
+      });
+
+      onChildAdded(playersRef, (snap) => {
+        const id = snap.key;
+        const data = snap.val();
+        if (!id || id === myPlayerId || !data || remotePlayers.has(id)) return;
+        const mesh = createRemotePlayerMesh(data.name);
+        mesh.position.set(data.x || 0, data.y || 2, data.z || 0);
+        scene.add(mesh);
+        remotePlayers.set(id, {
+          mesh,
+          x: data.x || 0,
+          y: data.y || 2,
+          z: data.z || 0,
+          yaw: data.yaw || 0,
+          name: data.name
+        });
+        showMessage(`👋 ${data.name || 'Spieler'} ist der Welt beigetreten`);
+      });
+
+      onChildChanged(playersRef, (snap) => {
+        const id = snap.key;
+        const data = snap.val();
+        if (!id || id === myPlayerId || !data) return;
+        const rp = remotePlayers.get(id);
+        if (!rp) return;
+        rp.x = data.x;
+        rp.y = data.y;
+        rp.z = data.z;
+        rp.yaw = data.yaw;
+      });
+
+      onChildRemoved(playersRef, (snap) => {
+        const id = snap.key;
+        if (!id) return;
+        const rp = remotePlayers.get(id);
+        if (!rp) return;
+        scene.remove(rp.mesh);
+        remotePlayers.delete(id);
+        showMessage(`🚪 ${rp.name || 'Spieler'} hat die Welt verlassen`);
+      });
+    }
+  } catch (err) {
+    mpEnabled = false;
+    setMpBadge('🌐 OFFLINE', false);
+    console.warn('Firebase init:', err);
+  }
+}
+
+let lastMpSendTime = 0;
+function syncPlayerToFirebase(now) {
+  if (!mpEnabled || !myPlayerRef || !gameStarted || player.dead || !firebaseMod) return;
+  if (now - lastMpSendTime < 110) return;
+  lastMpSendTime = now;
+
+  firebaseMod.update(myPlayerRef, {
+    name: myPlayerName,
+    x: Number(player.x.toFixed(2)),
+    y: Number(player.y.toFixed(2)),
+    z: Number(player.z.toFixed(2)),
+    yaw: Number(yaw.toFixed(2)),
+    pitch: Number(pitch.toFixed(2)),
+    flying: player.flying,
+    creativeMode: state.creativeMode,
+    lastSeen: Date.now()
+  }).catch(() => {});
+}
+
+function updateRemotePlayersSmooth(dt) {
+  if (!mpEnabled) return;
+  remotePlayers.forEach((rp) => {
+    const t = Math.min(1, dt * 12);
+    rp.mesh.position.x += (rp.x - rp.mesh.position.x) * t;
+    rp.mesh.position.y += (rp.y - rp.mesh.position.y) * t;
+    rp.mesh.position.z += (rp.z - rp.mesh.position.z) * t;
+    rp.mesh.rotation.y = rp.yaw;
+  });
+}
+
+/* =========================================================
+   1. AUDIO SYNTHESE (Web Audio API)
+   ========================================================= */
+let audioCtx = null;
+let muted = false;
+
+function playTone(freq, endFreq, dur, type = 'triangle', vol = 0.07) {
+  if (muted) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), audioCtx.currentTime + dur);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch (_) {}
+}
+
+const sfx = {
+  hit: () => playTone(150, 95, 0.06, 'square', 0.045),
+  break: () => playTone(210, 65, 0.13, 'sawtooth', 0.07),
+  build: () => playTone(260, 410, 0.09, 'triangle', 0.07),
+  door: open => playTone(open ? 190 : 280, open ? 290 : 165, 0.12, 'triangle', 0.075),
+  eat: () => { playTone(420, 560, 0.08, 'sine', 0.08); setTimeout(() => playTone(520, 680, 0.09, 'sine', 0.07), 80); },
+  craft: () => { playTone(330, 520, 0.11, 'triangle', 0.08); setTimeout(() => playTone(520, 780, 0.13, 'triangle', 0.08), 95); },
+  quest: () => { playTone(440, 660, 0.12, 'sine', 0.08); setTimeout(() => playTone(660, 880, 0.18, 'sine', 0.09), 110); },
+  hurt: () => playTone(130, 55, 0.2, 'sawtooth', 0.11),
+  enemyHit: () => playTone(290, 120, 0.11, 'square', 0.08),
+  jump: () => playTone(160, 300, 0.11, 'sine', 0.05),
+  flyToggle: on => {
+    if (on) playTone(300, 620, 0.14, 'sine', 0.07);
+    else playTone(520, 240, 0.14, 'sine', 0.06);
+  }
+};
+
+/* =========================================================
+   2. PROZEDURALE 16x16 PIXEL-TEXTUREN & MATERIALIEN
+   ========================================================= */
+function makePixelTexture(drawFn) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+  drawFn(ctx);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function pNoise(x, y, s = 1) {
+  const v = Math.sin((x + s * 17) * 12.9898 + (y + s * 31) * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+function fillNoise(ctx, baseRgb, variance, seed = 1) {
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const d = Math.floor((pNoise(x, y, seed) - 0.5) * variance);
+      const r = Math.max(0, Math.min(255, baseRgb[0] + d));
+      const g = Math.max(0, Math.min(255, baseRgb[1] + d));
+      const b = Math.max(0, Math.min(255, baseRgb[2] + d));
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+const texGrassTop = makePixelTexture(ctx => fillNoise(ctx, [98, 138, 68], 28, 2));
+const texDirt = makePixelTexture(ctx => fillNoise(ctx, [114, 82, 56], 24, 3));
+const texGrassSide = makePixelTexture(ctx => {
+  fillNoise(ctx, [114, 82, 56], 24, 3);
+  for (let x = 0; x < 16; x++) {
+    const drop = 3 + Math.floor(pNoise(x, 0, 7) * 3);
+    for (let y = 0; y < drop; y++) {
+      const d = Math.floor((pNoise(x, y, 2) - 0.5) * 24);
+      ctx.fillStyle = `rgb(${98 + d},${138 + d},${68 + d})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+});
+const texStone = makePixelTexture(ctx => {
+  fillNoise(ctx, [122, 128, 131], 28, 5);
+  ctx.fillStyle = 'rgba(40,44,46,0.35)';
+  ctx.fillRect(2, 4, 4, 1);
+  ctx.fillRect(9, 11, 5, 1);
+});
+const texCobble = makePixelTexture(ctx => {
+  fillNoise(ctx, [104, 109, 112], 36, 21);
+  ctx.fillStyle = '#3c4043';
+  for (let y = 0; y < 16; y += 4) ctx.fillRect(0, y, 16, 1);
+  for (let x = 0; x < 16; x += 5) ctx.fillRect(x, 0, 1, 16);
+});
+const texStoneBrick = makePixelTexture(ctx => {
+  fillNoise(ctx, [118, 124, 127], 18, 41);
+  ctx.fillStyle = '#484d50';
+  ctx.fillRect(0, 7, 16, 1);
+  ctx.fillRect(0, 15, 16, 1);
+  ctx.fillRect(7, 0, 1, 7);
+  ctx.fillRect(15, 8, 1, 7);
+});
+const texMossyBrick = makePixelTexture(ctx => {
+  fillNoise(ctx, [110, 120, 112], 22, 42);
+  ctx.fillStyle = '#484d50';
+  ctx.fillRect(0, 7, 16, 1);
+  ctx.fillRect(7, 0, 1, 7);
+  ctx.fillStyle = '#4f7a3e';
+  ctx.fillRect(2, 5, 4, 3);
+  ctx.fillRect(10, 11, 4, 3);
+});
+const texBrick = makePixelTexture(ctx => {
+  fillNoise(ctx, [156, 74, 62], 24, 22);
+  ctx.fillStyle = '#cfc7ba';
+  ctx.fillRect(0, 3, 16, 1);
+  ctx.fillRect(0, 7, 16, 1);
+  ctx.fillRect(0, 11, 16, 1);
+  ctx.fillRect(0, 15, 16, 1);
+  ctx.fillRect(7, 0, 1, 3);
+  ctx.fillRect(3, 4, 1, 3);
+  ctx.fillRect(11, 4, 1, 3);
+  ctx.fillRect(7, 8, 1, 3);
+  ctx.fillRect(3, 12, 1, 3);
+  ctx.fillRect(11, 12, 1, 3);
+});
+const texSandstone = makePixelTexture(ctx => {
+  fillNoise(ctx, [212, 196, 148], 18, 43);
+  ctx.fillStyle = '#b8a26a';
+  ctx.fillRect(0, 4, 16, 1);
+  ctx.fillRect(0, 12, 16, 1);
+});
+const texRedSandstone = makePixelTexture(ctx => {
+  fillNoise(ctx, [178, 96, 52], 20, 44);
+  ctx.fillStyle = '#8a4320';
+  ctx.fillRect(0, 4, 16, 1);
+  ctx.fillRect(0, 12, 16, 1);
+});
+const texGranite = makePixelTexture(ctx => fillNoise(ctx, [152, 108, 94], 34, 45));
+const texBasalt = makePixelTexture(ctx => fillNoise(ctx, [64, 66, 72], 24, 46));
+const texTerracotta = makePixelTexture(ctx => fillNoise(ctx, [152, 94, 68], 16, 47));
+const texQuartz = makePixelTexture(ctx => {
+  fillNoise(ctx, [236, 232, 224], 12, 48);
+  ctx.strokeStyle = '#d4cec2';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+});
+const texCopperBlock = makePixelTexture(ctx => {
+  fillNoise(ctx, [196, 108, 76], 22, 49);
+  ctx.strokeStyle = '#e49674';
+  ctx.strokeRect(1.5, 1.5, 13, 13);
+});
+const texEmeraldBlock = makePixelTexture(ctx => {
+  fillNoise(ctx, [56, 204, 98], 24, 50);
+  ctx.strokeStyle = '#a4ffbe';
+  ctx.strokeRect(1.5, 1.5, 13, 13);
+});
+const texLapisBlock = makePixelTexture(ctx => {
+  fillNoise(ctx, [42, 78, 168], 24, 51);
+  ctx.strokeStyle = '#74a4ff';
+  ctx.strokeRect(1.5, 1.5, 13, 13);
+});
+const texAmethystBlock = makePixelTexture(ctx => {
+  fillNoise(ctx, [138, 86, 194], 28, 52);
+  ctx.fillStyle = '#d4a6ff';
+  ctx.fillRect(4, 4, 2, 2);
+  ctx.fillRect(10, 10, 2, 2);
+});
+const texGlowstone = makePixelTexture(ctx => {
+  fillNoise(ctx, [232, 184, 72], 42, 53);
+  ctx.fillStyle = '#fff8c4';
+  ctx.fillRect(3, 3, 4, 4);
+  ctx.fillRect(9, 8, 4, 4);
+});
+const texSeaLantern = makePixelTexture(ctx => {
+  fillNoise(ctx, [164, 224, 220], 24, 54);
+  ctx.fillStyle = '#e8ffff';
+  ctx.fillRect(3, 3, 10, 10);
+});
+const texMagma = makePixelTexture(ctx => {
+  fillNoise(ctx, [64, 32, 28], 26, 55);
+  ctx.fillStyle = '#ff6a14';
+  ctx.fillRect(2, 4, 5, 2);
+  ctx.fillRect(8, 10, 6, 2);
+  ctx.fillStyle = '#ffd24d';
+  ctx.fillRect(4, 4, 2, 1);
+});
+const texSoulSand = makePixelTexture(ctx => fillNoise(ctx, [82, 64, 54], 24, 56));
+const texChest = makePixelTexture(ctx => {
+  fillNoise(ctx, [164, 114, 58], 18, 57);
+  ctx.strokeStyle = '#3b2612';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = '#3b2612';
+  ctx.fillRect(0, 5, 16, 1);
+  ctx.fillStyle = '#e2e6ea';
+  ctx.fillRect(7, 4, 2, 3);
+});
+const texWorkbench = makePixelTexture(ctx => {
+  fillNoise(ctx, [168, 122, 68], 18, 58);
+  ctx.fillStyle = '#5c3a1a';
+  ctx.fillRect(2, 2, 12, 12);
+  ctx.fillStyle = '#b88246';
+  for (let x = 3; x <= 11; x += 4) for (let y = 3; y <= 11; y += 4) ctx.fillRect(x, y, 3, 3);
+});
+const texTnt = makePixelTexture(ctx => {
+  fillNoise(ctx, [196, 54, 46], 20, 59);
+  ctx.fillStyle = '#f2efe6';
+  ctx.fillRect(0, 5, 16, 6);
+  ctx.fillStyle = '#1d1f21';
+  ctx.fillRect(2, 6, 3, 1);
+  ctx.fillRect(3, 7, 1, 3);
+  ctx.fillRect(7, 6, 1, 4);
+  ctx.fillRect(9, 6, 1, 4);
+  ctx.fillRect(11, 6, 3, 1);
+  ctx.fillRect(12, 7, 1, 3);
+});
+const texHay = makePixelTexture(ctx => {
+  fillNoise(ctx, [212, 178, 58], 24, 60);
+  ctx.fillStyle = '#b84232';
+  ctx.fillRect(0, 4, 16, 2);
+  ctx.fillRect(0, 11, 16, 2);
+});
+const texPumpkin = makePixelTexture(ctx => {
+  fillNoise(ctx, [216, 118, 32], 22, 61);
+  ctx.fillStyle = '#8c4412';
+  ctx.fillRect(3, 0, 1, 16);
+  ctx.fillRect(8, 0, 1, 16);
+  ctx.fillRect(13, 0, 1, 16);
+});
+const texJackOLantern = makePixelTexture(ctx => {
+  fillNoise(ctx, [216, 118, 32], 22, 61);
+  ctx.fillStyle = '#fff078';
+  ctx.fillRect(4, 4, 2, 2);
+  ctx.fillRect(10, 4, 2, 2);
+  ctx.fillRect(4, 10, 8, 2);
+});
+const texCactus = makePixelTexture(ctx => {
+  fillNoise(ctx, [66, 128, 54], 24, 62);
+  ctx.fillStyle = '#285622';
+  ctx.fillRect(3, 0, 1, 16);
+  ctx.fillRect(12, 0, 1, 16);
+});
+const texGlass = makePixelTexture(ctx => {
+  ctx.clearRect(0, 0, 16, 16);
+  ctx.fillStyle = 'rgba(195,235,248,0.22)';
+  ctx.fillRect(1, 1, 14, 14);
+  ctx.strokeStyle = '#dff6ff';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillRect(3, 3, 3, 1);
+  ctx.fillRect(3, 4, 1, 2);
+});
+const texBookshelf = makePixelTexture(ctx => {
+  fillNoise(ctx, [156, 114, 68], 16, 23);
+  ctx.fillStyle = '#241a14';
+  ctx.fillRect(1, 2, 14, 5);
+  ctx.fillRect(1, 9, 14, 5);
+  const colors = ['#b83b35', '#3e7cb1', '#4b8f54', '#d9a441', '#8e5599'];
+  for (let x = 2; x < 14; x += 2) {
+    ctx.fillStyle = colors[(x * 3) % colors.length];
+    ctx.fillRect(x, 3, 1, 4);
+    ctx.fillStyle = colors[(x * 5 + 1) % colors.length];
+    ctx.fillRect(x, 10, 1, 4);
+  }
+});
+const texGoldBlock = makePixelTexture(ctx => {
+  fillNoise(ctx, [238, 194, 56], 24, 24);
+  ctx.strokeStyle = '#fff099';
+  ctx.strokeRect(1.5, 1.5, 13, 13);
+});
+const texDiamondBlock = makePixelTexture(ctx => {
+  fillNoise(ctx, [86, 218, 224], 24, 25);
+  ctx.strokeStyle = '#d4ffff';
+  ctx.strokeRect(1.5, 1.5, 13, 13);
+});
+const texObsidian = makePixelTexture(ctx => {
+  fillNoise(ctx, [26, 20, 38], 18, 26);
+  ctx.fillStyle = '#53357a';
+  ctx.fillRect(3, 4, 2, 2);
+  ctx.fillRect(10, 9, 3, 2);
+  ctx.fillRect(5, 12, 2, 2);
+});
+const texSnow = makePixelTexture(ctx => fillNoise(ctx, [238, 245, 250], 14, 27));
+const texIce = makePixelTexture(ctx => {
+  fillNoise(ctx, [136, 196, 238], 20, 28);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillRect(3, 3, 5, 1);
+  ctx.fillRect(8, 10, 4, 1);
+});
+const texWoolWhite = makePixelTexture(ctx => fillNoise(ctx, [232, 232, 228], 22, 29));
+const texWoolRed = makePixelTexture(ctx => fillNoise(ctx, [186, 52, 48], 24, 30));
+const texWoolBlue = makePixelTexture(ctx => fillNoise(ctx, [54, 104, 184], 24, 31));
+const texWoolGreen = makePixelTexture(ctx => fillNoise(ctx, [66, 146, 72], 24, 32));
+const texWoolYellow = makePixelTexture(ctx => fillNoise(ctx, [224, 192, 54], 24, 63));
+const texWoolPurple = makePixelTexture(ctx => fillNoise(ctx, [134, 62, 178], 24, 64));
+
+const texWoodDoor = makePixelTexture(ctx => {
+  fillNoise(ctx, [168, 122, 68], 18, 70);
+  ctx.strokeStyle = '#5c3a1a';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = '#aee2f5';
+  ctx.fillRect(3, 2, 4, 4);
+  ctx.fillRect(9, 2, 4, 4);
+  ctx.fillStyle = '#3b2410';
+  ctx.fillRect(3, 8, 10, 6);
+  ctx.fillStyle = '#ffd24d';
+  ctx.fillRect(12, 8, 2, 2);
+});
+const texOakDoor = makePixelTexture(ctx => {
+  fillNoise(ctx, [108, 72, 42], 16, 71);
+  ctx.strokeStyle = '#382210';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = '#4e321a';
+  ctx.fillRect(3, 2, 10, 5);
+  ctx.fillRect(3, 9, 10, 5);
+  ctx.fillStyle = '#e6c35c';
+  ctx.fillRect(12, 7, 2, 2);
+});
+const texIronDoor = makePixelTexture(ctx => {
+  fillNoise(ctx, [196, 202, 208], 16, 72);
+  ctx.strokeStyle = '#6c7278';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = '#2d3236';
+  ctx.fillRect(3, 2, 4, 4);
+  ctx.fillRect(9, 2, 4, 4);
+  ctx.fillStyle = '#8b9298';
+  ctx.fillRect(3, 8, 10, 6);
+  ctx.fillStyle = '#383e42';
+  ctx.fillRect(12, 8, 2, 2);
+});
+const texTrapdoor = makePixelTexture(ctx => {
+  fillNoise(ctx, [154, 110, 62], 18, 73);
+  ctx.strokeStyle = '#4f3318';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = '#2c1e12';
+  ctx.fillRect(3, 3, 4, 4);
+  ctx.fillRect(9, 3, 4, 4);
+  ctx.fillRect(3, 9, 4, 4);
+  ctx.fillRect(9, 9, 4, 4);
+});
+const texWardrobe = makePixelTexture(ctx => {
+  fillNoise(ctx, [138, 94, 52], 16, 74);
+  ctx.strokeStyle = '#442a14';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = '#442a14';
+  ctx.fillRect(7, 0, 2, 16);
+  ctx.fillStyle = '#e5c158';
+  ctx.fillRect(5, 7, 1, 2);
+  ctx.fillRect(10, 7, 1, 2);
+});
+const texCabinet = makePixelTexture(ctx => {
+  fillNoise(ctx, [176, 134, 84], 16, 75);
+  ctx.fillStyle = '#6b7075';
+  ctx.fillRect(0, 0, 16, 3);
+  ctx.strokeStyle = '#5c3b1c';
+  ctx.strokeRect(1.5, 4.5, 13, 4);
+  ctx.strokeRect(1.5, 10.5, 13, 4);
+  ctx.fillStyle = '#e2e6ea';
+  ctx.fillRect(7, 6, 2, 1);
+  ctx.fillRect(7, 12, 2, 1);
+});
+const texClock = makePixelTexture(ctx => {
+  fillNoise(ctx, [118, 76, 40], 16, 76);
+  ctx.strokeStyle = '#3c220e';
+  ctx.strokeRect(0.5, 0.5, 15, 15);
+  ctx.fillStyle = '#f5f2e6';
+  ctx.fillRect(4, 2, 8, 6);
+  ctx.fillStyle = '#1d1f21';
+  ctx.fillRect(7, 3, 1, 3);
+  ctx.fillRect(8, 5, 2, 1);
+  ctx.fillStyle = '#e8be46';
+  ctx.fillRect(7, 9, 2, 5);
+});
+const texPainting = makePixelTexture(ctx => {
+  fillNoise(ctx, [136, 92, 48], 14, 77);
+  ctx.fillStyle = '#5ca4d6';
+  ctx.fillRect(2, 2, 12, 7);
+  ctx.fillStyle = '#f5d24e';
+  ctx.fillRect(10, 3, 2, 2);
+  ctx.fillStyle = '#4c8c42';
+  ctx.fillRect(2, 9, 12, 5);
+  ctx.fillStyle = '#b84238';
+  ctx.fillRect(4, 7, 4, 4);
+});
+const texMirror = makePixelTexture(ctx => {
+  fillNoise(ctx, [168, 176, 184], 12, 78);
+  ctx.fillStyle = '#bce6f8';
+  ctx.fillRect(2, 2, 12, 12);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(4, 3, 2, 6);
+  ctx.fillRect(6, 5, 1, 4);
+});
+const texBarrel = makePixelTexture(ctx => {
+  fillNoise(ctx, [146, 102, 56], 20, 79);
+  ctx.fillStyle = '#383d42';
+  ctx.fillRect(0, 3, 16, 2);
+  ctx.fillRect(0, 11, 16, 2);
+});
+
+const texLantern = makePixelTexture(ctx => {
+  ctx.fillStyle = '#2c3336';
+  ctx.fillRect(3, 1, 10, 2);
+  ctx.fillRect(3, 13, 10, 2);
+  ctx.fillRect(3, 3, 2, 10);
+  ctx.fillRect(11, 3, 2, 10);
+  ctx.fillStyle = '#ffbe44';
+  ctx.fillRect(5, 3, 6, 10);
+  ctx.fillStyle = '#fff6b8';
+  ctx.fillRect(6, 5, 4, 6);
+});
+const texLadder = makePixelTexture(ctx => {
+  fillNoise(ctx, [164, 122, 74], 16, 33);
+  ctx.fillStyle = '#4e3319';
+  ctx.fillRect(0, 0, 2, 16);
+  ctx.fillRect(14, 0, 2, 16);
+  for (let y = 2; y < 16; y += 4) ctx.fillRect(2, y, 12, 2);
+});
+const texFence = makePixelTexture(ctx => {
+  fillNoise(ctx, [174, 130, 78], 16, 65);
+  ctx.fillStyle = '#5e3d1c';
+  ctx.fillRect(2, 0, 3, 16);
+  ctx.fillRect(11, 0, 3, 16);
+  ctx.fillRect(0, 4, 16, 2);
+  ctx.fillRect(0, 10, 16, 2);
+});
+const texCoalOre = makePixelTexture(ctx => {
+  fillNoise(ctx, [120, 126, 129], 24, 5);
+  ctx.fillStyle = '#1b1e20';
+  [[3,3,2,2],[10,4,3,2],[5,10,3,3],[11,11,2,2]].forEach(([x,y,w,h]) => ctx.fillRect(x, y, w, h));
+});
+const texIronOre = makePixelTexture(ctx => {
+  fillNoise(ctx, [120, 126, 129], 24, 5);
+  ctx.fillStyle = '#d7a278';
+  [[3,4,2,2],[10,3,3,2],[4,11,3,2],[11,10,2,3]].forEach(([x,y,w,h]) => ctx.fillRect(x, y, w, h));
+});
+const texCopperOre = makePixelTexture(ctx => {
+  fillNoise(ctx, [120, 126, 129], 24, 5);
+  ctx.fillStyle = '#df7c52';
+  [[3,3,3,2],[10,5,2,3],[5,10,3,2],[11,11,2,2]].forEach(([x,y,w,h]) => ctx.fillRect(x, y, w, h));
+});
+const texGoldOre = makePixelTexture(ctx => {
+  fillNoise(ctx, [120, 126, 129], 24, 5);
+  ctx.fillStyle = '#f5cb42';
+  [[3,3,2,2],[10,4,3,2],[5,10,2,3],[11,11,2,2]].forEach(([x,y,w,h]) => ctx.fillRect(x, y, w, h));
+});
+const texDiamondOre = makePixelTexture(ctx => {
+  fillNoise(ctx, [120, 126, 129], 24, 5);
+  ctx.fillStyle = '#5ee8ef';
+  [[3,4,2,2],[10,3,2,2],[4,11,3,2],[11,10,2,2]].forEach(([x,y,w,h]) => ctx.fillRect(x, y, w, h));
+});
+const texEmeraldOre = makePixelTexture(ctx => {
+  fillNoise(ctx, [120, 126, 129], 24, 5);
+  ctx.fillStyle = '#38d868';
+  [[4,3,2,3],[10,4,2,2],[4,10,2,2],[10,10,3,2]].forEach(([x,y,w,h]) => ctx.fillRect(x, y, w, h));
+});
+const texWoodSide = makePixelTexture(ctx => {
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const stripe = (x % 3 === 0 ? -12 : 6) + Math.floor((pNoise(x, y, 9) - 0.5) * 16);
+      ctx.fillStyle = `rgb(${124 + stripe},${82 + Math.floor(stripe * 0.7)},${48 + Math.floor(stripe * 0.5)})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+});
+const texWoodTop = makePixelTexture(ctx => {
+  fillNoise(ctx, [168, 126, 78], 16, 11);
+  ctx.strokeStyle = '#6e4727';
+  ctx.strokeRect(2.5, 2.5, 11, 11);
+  ctx.strokeRect(5.5, 5.5, 5, 5);
+});
+const texLeaves = makePixelTexture(ctx => {
+  fillNoise(ctx, [52, 96, 56], 34, 13);
+  ctx.fillStyle = '#254728';
+  for (let i = 0; i < 18; i++) {
+    ctx.fillRect(Math.floor(pNoise(i, 1, 14) * 15), Math.floor(pNoise(i, 2, 14) * 15), 2, 1);
+  }
+});
+const texSand = makePixelTexture(ctx => fillNoise(ctx, [198, 181, 130], 20, 15));
+const texPlank = makePixelTexture(ctx => {
+  fillNoise(ctx, [178, 134, 82], 18, 17);
+  ctx.fillStyle = '#6e4926';
+  ctx.fillRect(0, 3, 16, 1);
+  ctx.fillRect(0, 7, 16, 1);
+  ctx.fillRect(0, 11, 16, 1);
+  ctx.fillRect(0, 15, 16, 1);
+});
+const texFurnaceFront = makePixelTexture(ctx => {
+  fillNoise(ctx, [110, 114, 118], 22, 19);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(4, 3, 8, 3);
+  ctx.fillStyle = '#ff6a1a';
+  ctx.fillRect(4, 9, 8, 5);
+  ctx.fillStyle = '#ffd24d';
+  ctx.fillRect(6, 11, 4, 2);
+});
+const texTorch = makePixelTexture(ctx => {
+  ctx.fillStyle = '#7c4d29';
+  ctx.fillRect(6, 4, 4, 12);
+  ctx.fillStyle = '#ff8a1e';
+  ctx.fillRect(6, 1, 4, 4);
+  ctx.fillStyle = '#fff08a';
+  ctx.fillRect(7, 2, 2, 2);
+});
+const texMushroom = makePixelTexture(ctx => {
+  ctx.clearRect(0, 0, 16, 16);
+  ctx.fillStyle = '#e8dec8';
+  ctx.fillRect(6, 9, 4, 7);
+  ctx.fillStyle = '#c83e37';
+  ctx.fillRect(3, 5, 10, 5);
+  ctx.fillRect(5, 3, 6, 2);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(5, 6, 2, 2);
+  ctx.fillRect(10, 7, 2, 1);
+});
+const texPoppy = makePixelTexture(ctx => {
+  ctx.clearRect(0, 0, 16, 16);
+  ctx.fillStyle = '#48883c';
+  ctx.fillRect(7, 7, 2, 9);
+  ctx.fillStyle = '#d9382e';
+  ctx.fillRect(5, 3, 6, 5);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(7, 5, 2, 2);
+});
+const texDandelion = makePixelTexture(ctx => {
+  ctx.clearRect(0, 0, 16, 16);
+  ctx.fillStyle = '#48883c';
+  ctx.fillRect(7, 7, 2, 9);
+  ctx.fillStyle = '#f2cc38';
+  ctx.fillRect(5, 3, 6, 5);
+});
+const texBamboo = makePixelTexture(ctx => {
+  ctx.clearRect(0, 0, 16, 16);
+  ctx.fillStyle = '#68a83c';
+  ctx.fillRect(6, 0, 4, 16);
+  ctx.fillStyle = '#487826';
+  ctx.fillRect(6, 4, 4, 1);
+  ctx.fillRect(6, 11, 4, 1);
+});
+
+const mats = {
+  wood_door: new THREE.MeshStandardMaterial({ map: texWoodDoor, roughness: 0.85 }),
+  oak_door: new THREE.MeshStandardMaterial({ map: texOakDoor, roughness: 0.85 }),
+  iron_door: new THREE.MeshStandardMaterial({ map: texIronDoor, metalness: 0.55, roughness: 0.35 }),
+  trapdoor: new THREE.MeshStandardMaterial({ map: texTrapdoor, roughness: 0.88 }),
+  fence_gate: new THREE.MeshStandardMaterial({ map: texFence, roughness: 0.9 }),
+  chair: new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.86 }),
+  table: new THREE.MeshStandardMaterial({ map: texWoodTop, roughness: 0.85 }),
+  sofa: new THREE.MeshStandardMaterial({ map: texWoolRed, roughness: 0.95 }),
+  bed_red: [
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texWoolRed, roughness: 0.95 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 })
+  ],
+  bed_blue: [
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texWoolBlue, roughness: 0.95 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 })
+  ],
+  wardrobe: new THREE.MeshStandardMaterial({ map: texWardrobe, roughness: 0.86 }),
+  cabinet: new THREE.MeshStandardMaterial({ map: texCabinet, roughness: 0.85 }),
+  throne: new THREE.MeshStandardMaterial({ map: texGoldBlock, metalness: 0.45, roughness: 0.35 }),
+  carpet_red: new THREE.MeshStandardMaterial({ map: texWoolRed, roughness: 0.98 }),
+  carpet_blue: new THREE.MeshStandardMaterial({ map: texWoolBlue, roughness: 0.98 }),
+  flower_pot: new THREE.MeshStandardMaterial({ map: texPoppy, transparent: true, alphaTest: 0.3, roughness: 0.9 }),
+  painting: new THREE.MeshStandardMaterial({ map: texPainting, roughness: 0.85 }),
+  clock_block: new THREE.MeshStandardMaterial({ map: texClock, roughness: 0.8 }),
+  mirror: new THREE.MeshStandardMaterial({ map: texMirror, metalness: 0.35, roughness: 0.15 }),
+  barrel: new THREE.MeshStandardMaterial({ map: texBarrel, roughness: 0.9 }),
+  anvil: new THREE.MeshStandardMaterial({ map: texBasalt, metalness: 0.6, roughness: 0.45 }),
+  grass: [
+    new THREE.MeshStandardMaterial({ map: texGrassSide, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texGrassSide, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texGrassTop, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texDirt, roughness: 1.0 }),
+    new THREE.MeshStandardMaterial({ map: texGrassSide, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texGrassSide, roughness: 0.96 })
+  ],
+  dirt: new THREE.MeshStandardMaterial({ map: texDirt, roughness: 1.0 }),
+  stone: new THREE.MeshStandardMaterial({ map: texStone, roughness: 0.94 }),
+  cobble: new THREE.MeshStandardMaterial({ map: texCobble, roughness: 0.95 }),
+  stone_brick: new THREE.MeshStandardMaterial({ map: texStoneBrick, roughness: 0.92 }),
+  mossy_brick: new THREE.MeshStandardMaterial({ map: texMossyBrick, roughness: 0.94 }),
+  brick: new THREE.MeshStandardMaterial({ map: texBrick, roughness: 0.9 }),
+  sandstone: new THREE.MeshStandardMaterial({ map: texSandstone, roughness: 0.94 }),
+  red_sandstone: new THREE.MeshStandardMaterial({ map: texRedSandstone, roughness: 0.94 }),
+  granite: new THREE.MeshStandardMaterial({ map: texGranite, roughness: 0.92 }),
+  basalt: new THREE.MeshStandardMaterial({ map: texBasalt, roughness: 0.92 }),
+  terracotta: new THREE.MeshStandardMaterial({ map: texTerracotta, roughness: 0.92 }),
+  quartz_block: new THREE.MeshStandardMaterial({ map: texQuartz, roughness: 0.6 }),
+  copper_block: new THREE.MeshStandardMaterial({ map: texCopperBlock, metalness: 0.4, roughness: 0.4 }),
+  emerald_block: new THREE.MeshStandardMaterial({ map: texEmeraldBlock, metalness: 0.3, roughness: 0.3 }),
+  lapis_block: new THREE.MeshStandardMaterial({ map: texLapisBlock, roughness: 0.7 }),
+  amethyst_block: new THREE.MeshStandardMaterial({ map: texAmethystBlock, roughness: 0.4 }),
+  glowstone: new THREE.MeshStandardMaterial({ map: texGlowstone, emissive: 0xffc844, emissiveIntensity: 1.35, roughness: 0.6 }),
+  sea_lantern: new THREE.MeshStandardMaterial({ map: texSeaLantern, emissive: 0x8ef2ee, emissiveIntensity: 1.3, roughness: 0.4 }),
+  magma: new THREE.MeshStandardMaterial({ map: texMagma, emissive: 0xff5414, emissiveIntensity: 0.9, roughness: 0.85 }),
+  soul_sand: new THREE.MeshStandardMaterial({ map: texSoulSand, roughness: 0.98 }),
+  chest: new THREE.MeshStandardMaterial({ map: texChest, roughness: 0.85 }),
+  workbench: new THREE.MeshStandardMaterial({ map: texWorkbench, roughness: 0.85 }),
+  tnt: new THREE.MeshStandardMaterial({ map: texTnt, roughness: 0.88 }),
+  hay: new THREE.MeshStandardMaterial({ map: texHay, roughness: 0.95 }),
+  pumpkin: new THREE.MeshStandardMaterial({ map: texPumpkin, roughness: 0.9 }),
+  jack_o_lantern: new THREE.MeshStandardMaterial({ map: texJackOLantern, emissive: 0xff9a24, emissiveIntensity: 1.25, roughness: 0.8 }),
+  cactus: new THREE.MeshStandardMaterial({ map: texCactus, roughness: 0.92 }),
+  glass: new THREE.MeshStandardMaterial({ map: texGlass, transparent: true, opacity: 0.78, roughness: 0.15 }),
+  bookshelf: [
+    new THREE.MeshStandardMaterial({ map: texBookshelf, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texBookshelf, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texBookshelf, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texBookshelf, roughness: 0.9 })
+  ],
+  gold_block: new THREE.MeshStandardMaterial({ map: texGoldBlock, metalness: 0.45, roughness: 0.35 }),
+  diamond_block: new THREE.MeshStandardMaterial({ map: texDiamondBlock, metalness: 0.3, roughness: 0.25 }),
+  obsidian: new THREE.MeshStandardMaterial({ map: texObsidian, roughness: 0.85 }),
+  snow: new THREE.MeshStandardMaterial({ map: texSnow, roughness: 0.9 }),
+  ice: new THREE.MeshStandardMaterial({ map: texIce, transparent: true, opacity: 0.86, roughness: 0.2 }),
+  wool_white: new THREE.MeshStandardMaterial({ map: texWoolWhite, roughness: 0.98 }),
+  wool_red: new THREE.MeshStandardMaterial({ map: texWoolRed, roughness: 0.98 }),
+  wool_blue: new THREE.MeshStandardMaterial({ map: texWoolBlue, roughness: 0.98 }),
+  wool_green: new THREE.MeshStandardMaterial({ map: texWoolGreen, roughness: 0.98 }),
+  wool_yellow: new THREE.MeshStandardMaterial({ map: texWoolYellow, roughness: 0.98 }),
+  wool_purple: new THREE.MeshStandardMaterial({ map: texWoolPurple, roughness: 0.98 }),
+  lantern: new THREE.MeshStandardMaterial({ map: texLantern, emissive: 0xffaa2b, emissiveIntensity: 1.35, roughness: 0.5 }),
+  ladder: new THREE.MeshStandardMaterial({ map: texLadder, roughness: 0.9 }),
+  fence: new THREE.MeshStandardMaterial({ map: texFence, roughness: 0.9 }),
+  coal_ore: new THREE.MeshStandardMaterial({ map: texCoalOre, roughness: 0.92 }),
+  iron_ore: new THREE.MeshStandardMaterial({ map: texIronOre, roughness: 0.9 }),
+  copper_ore: new THREE.MeshStandardMaterial({ map: texCopperOre, roughness: 0.9 }),
+  gold_ore: new THREE.MeshStandardMaterial({ map: texGoldOre, roughness: 0.9 }),
+  diamond_ore: new THREE.MeshStandardMaterial({ map: texDiamondOre, roughness: 0.88 }),
+  emerald_ore: new THREE.MeshStandardMaterial({ map: texEmeraldOre, roughness: 0.88 }),
+  wood: [
+    new THREE.MeshStandardMaterial({ map: texWoodSide, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texWoodSide, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texWoodTop, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texWoodTop, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texWoodSide, roughness: 0.96 }),
+    new THREE.MeshStandardMaterial({ map: texWoodSide, roughness: 0.96 })
+  ],
+  leaves: new THREE.MeshStandardMaterial({ map: texLeaves, roughness: 0.95 }),
+  sand: new THREE.MeshStandardMaterial({ map: texSand, roughness: 0.95 }),
+  plank: new THREE.MeshStandardMaterial({ map: texPlank, roughness: 0.88 }),
+  furnace: [
+    new THREE.MeshStandardMaterial({ map: texStone, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texStone, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texStone, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texStone, roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ map: texFurnaceFront, emissive: 0xff5a14, emissiveIntensity: 0.45, roughness: 0.85 }),
+    new THREE.MeshStandardMaterial({ map: texStone, roughness: 0.9 })
+  ],
+  campfire: new THREE.MeshStandardMaterial({
+    map: texWoodSide,
+    emissive: 0xff5a14,
+    emissiveIntensity: 1.45,
+    roughness: 0.8
+  }),
+  torch: new THREE.MeshStandardMaterial({
+    map: texTorch,
+    emissive: 0xff9b26,
+    emissiveIntensity: 1.25,
+    roughness: 0.7
+  }),
+  mushroom: new THREE.MeshStandardMaterial({ map: texMushroom, transparent: true, alphaTest: 0.3, roughness: 0.9 }),
+  poppy: new THREE.MeshStandardMaterial({ map: texPoppy, transparent: true, alphaTest: 0.3, roughness: 0.9 }),
+  dandelion: new THREE.MeshStandardMaterial({ map: texDandelion, transparent: true, alphaTest: 0.3, roughness: 0.9 }),
+  bamboo: new THREE.MeshStandardMaterial({ map: texBamboo, transparent: true, alphaTest: 0.3, roughness: 0.85 }),
+  water: new THREE.MeshStandardMaterial({
+    color: 0x358da0,
+    transparent: true,
+    opacity: 0.72,
+    roughness: 0.18
+  })
+};
+
+const PARTICLE_COLORS = {
+  wood_door: 0xa87a44, oak_door: 0x6c482a, iron_door: 0xc4cad0, trapdoor: 0x9a6e3e, fence_gate: 0xae824e,
+  chair: 0xb28652, table: 0xa87e4e, sofa: 0xba3430, bed_red: 0xba3430, bed_blue: 0x3668b8,
+  wardrobe: 0x8a5e34, cabinet: 0xb08654, throne: 0xeec238, carpet_red: 0xba3430, carpet_blue: 0x3668b8,
+  flower_pot: 0xd9382e, painting: 0x885c30, clock_block: 0x764c28, mirror: 0xbce6f8, barrel: 0x926638, anvil: 0x404248,
+  grass: 0x628a44, dirt: 0x725238, stone: 0x7a8083, cobble: 0x686d70,
+  stone_brick: 0x767c7f, mossy_brick: 0x5c7a56, brick: 0x9c4a3e,
+  sandstone: 0xd4c494, red_sandstone: 0xb26034, granite: 0x986c5e,
+  basalt: 0x404248, terracotta: 0x985e44, quartz_block: 0xece8e0,
+  copper_block: 0xc46c4c, emerald_block: 0x38cc62, lapis_block: 0x2a4ea8,
+  amethyst_block: 0x8a56c2, glowstone: 0xe8b848, sea_lantern: 0xa4e0dc,
+  magma: 0xff6a14, soul_sand: 0x524036, chest: 0xa4723a, workbench: 0xa87a44,
+  tnt: 0xc4362e, hay: 0xd4b23a, pumpkin: 0xd87620, jack_o_lantern: 0xff9a24,
+  cactus: 0x428036, glass: 0xbfe8f5, bookshelf: 0x9c7244, gold_block: 0xeec238,
+  diamond_block: 0x56dae0, obsidian: 0x261838, snow: 0xeef5fa, ice: 0x88c4ee,
+  wool_white: 0xe8e8e4, wool_red: 0xba3430, wool_blue: 0x3668b8, wool_green: 0x429248,
+  wool_yellow: 0xe0c036, wool_purple: 0x863eb2, lantern: 0xffbe44,
+  ladder: 0xa47a4a, fence: 0xae824e, coal_ore: 0x2c3033, iron_ore: 0xd7a278,
+  copper_ore: 0xdf7c52, gold_ore: 0xf5cb42, diamond_ore: 0x5ee8ef, emerald_ore: 0x38d868,
+  wood: 0x7c5230, leaves: 0x346038, sand: 0xc6b582, plank: 0xb28652,
+  furnace: 0x707478, campfire: 0xff6a1a, torch: 0xff9b26, mushroom: 0xc83e37,
+  poppy: 0xd9382e, dandelion: 0xf2cc38, bamboo: 0x68a83c
+};
+
+const BLOCK_INFO = {
+  wood_door: { name: 'Holztür (Rechtsklick)', hard: 0.7 },
+  oak_door: { name: 'Edle Eichentür (Rechtsklick)', hard: 0.85 },
+  iron_door: { name: 'Eisentür (Rechtsklick)', hard: 1.5 },
+  trapdoor: { name: 'Falltür (Rechtsklick)', hard: 0.6 },
+  fence_gate: { name: 'Gartentor (Rechtsklick)', hard: 0.6 },
+  chair: { name: 'Holzstuhl', hard: 0.55 },
+  table: { name: 'Holztisch', hard: 0.65 },
+  sofa: { name: 'Rotes Sofa', hard: 0.55 },
+  bed_red: { name: 'Rotes Bett', hard: 0.55 },
+  bed_blue: { name: 'Blaues Bett', hard: 0.55 },
+  wardrobe: { name: 'Kleiderschrank', hard: 0.85 },
+  cabinet: { name: 'Küchenschrank', hard: 0.85 },
+  throne: { name: 'Königsthron', hard: 1.4 },
+  carpet_red: { name: 'Roter Teppich', hard: 0.2 },
+  carpet_blue: { name: 'Blauer Teppich', hard: 0.2 },
+  flower_pot: { name: 'Blumentopf', hard: 0.2 },
+  painting: { name: 'Gemälde-Block', hard: 0.4 },
+  clock_block: { name: 'Standuhr', hard: 0.75 },
+  mirror: { name: 'Wandspiegel', hard: 0.4 },
+  barrel: { name: 'Holzfass', hard: 0.7 },
+  anvil: { name: 'Amboss', hard: 1.8 },
+  grass: { name: 'Grasblock', hard: 0.55 },
+  dirt: { name: 'Erde', hard: 0.5 },
+  stone: { name: 'Stein', hard: 1.35 },
+  cobble: { name: 'Pflasterstein', hard: 1.25 },
+  stone_brick: { name: 'Steinziegel', hard: 1.35 },
+  mossy_brick: { name: 'Bemooste Steinziegel', hard: 1.35 },
+  brick: { name: 'Ziegelstein', hard: 1.3 },
+  sandstone: { name: 'Sandstein', hard: 0.9 },
+  red_sandstone: { name: 'Roter Sandstein', hard: 0.9 },
+  granite: { name: 'Granit', hard: 1.3 },
+  basalt: { name: 'Basalt', hard: 1.4 },
+  terracotta: { name: 'Terrakotta', hard: 1.1 },
+  quartz_block: { name: 'Quarzblock', hard: 1.1 },
+  copper_block: { name: 'Kupferblock', hard: 1.5 },
+  emerald_block: { name: 'Smaragdblock', hard: 1.9 },
+  lapis_block: { name: 'Lapislazuli-Block', hard: 1.5 },
+  amethyst_block: { name: 'Amethystblock', hard: 1.3 },
+  glowstone: { name: 'Glowstone', hard: 0.45 },
+  sea_lantern: { name: 'Seelaterne', hard: 0.45 },
+  magma: { name: 'Magmablock', hard: 0.9 },
+  soul_sand: { name: 'Seelensand', hard: 0.5 },
+  chest: { name: 'Vorratstruhe', hard: 0.9 },
+  workbench: { name: 'Werkbank-Block', hard: 0.85 },
+  tnt: { name: 'TNT-Block', hard: 0.35 },
+  hay: { name: 'Heuballen', hard: 0.45 },
+  pumpkin: { name: 'Kürbis', hard: 0.5 },
+  jack_o_lantern: { name: 'Kürbislaterne', hard: 0.5 },
+  cactus: { name: 'Kaktus', hard: 0.4 },
+  glass: { name: 'Glasblock', hard: 0.3 },
+  bookshelf: { name: 'Bücherregal', hard: 0.85 },
+  gold_block: { name: 'Goldblock', hard: 1.6 },
+  diamond_block: { name: 'Diamantblock', hard: 2.0 },
+  obsidian: { name: 'Obsidian', hard: 3.0 },
+  snow: { name: 'Schneeblock', hard: 0.35 },
+  ice: { name: 'Eisblock', hard: 0.45 },
+  wool_white: { name: 'Weiße Wolle', hard: 0.45 },
+  wool_red: { name: 'Rote Wolle', hard: 0.45 },
+  wool_blue: { name: 'Blaue Wolle', hard: 0.45 },
+  wool_green: { name: 'Grüne Wolle', hard: 0.45 },
+  wool_yellow: { name: 'Gelbe Wolle', hard: 0.45 },
+  wool_purple: { name: 'Lila Wolle', hard: 0.45 },
+  lantern: { name: 'Laterne', hard: 0.4 },
+  ladder: { name: 'Leiterblock', hard: 0.4 },
+  fence: { name: 'Zaunblock', hard: 0.6 },
+  coal_ore: { name: 'Kohleerz', hard: 1.6 },
+  iron_ore: { name: 'Eisenerz', hard: 2.0 },
+  copper_ore: { name: 'Kupfererz', hard: 1.8 },
+  gold_ore: { name: 'Golderz', hard: 2.2 },
+  diamond_ore: { name: 'Diamanterz', hard: 2.5 },
+  emerald_ore: { name: 'Smaragderz', hard: 2.5 },
+  wood: { name: 'Holzstamm', hard: 0.95 },
+  leaves: { name: 'Laub', hard: 0.25 },
+  sand: { name: 'Sand', hard: 0.45 },
+  plank: { name: 'Holzbretter', hard: 0.75 },
+  furnace: { name: 'Schmelzofen', hard: 1.5 },
+  campfire: { name: 'Lagerfeuer', hard: 0.5 },
+  torch: { name: 'Fackel', hard: 0.15 },
+  mushroom: { name: 'Waldpilz', hard: 0.15 },
+  poppy: { name: 'Mohnblume', hard: 0.1 },
+  dandelion: { name: 'Löwenzahn', hard: 0.1 },
+  bamboo: { name: 'Bambus', hard: 0.2 }
+};
+
+const DOOR_TYPES = new Set(['wood_door', 'oak_door', 'iron_door', 'trapdoor', 'fence_gate']);
+const NON_SOLID = new Set(['torch', 'campfire', 'mushroom', 'poppy', 'dandelion', 'bamboo', 'ladder', 'carpet_red', 'carpet_blue', 'flower_pot']);
+const LIGHT_BLOCKS = new Set(['campfire', 'torch', 'furnace', 'lantern', 'glowstone', 'sea_lantern', 'jack_o_lantern', 'magma']);
+const PLACEABLE_ITEMS = new Set(Object.keys(BLOCK_INFO));
+
+/* =========================================================
+   3. THREE.JS SZENE, HIMMEL, STERNE & WETTER-PARTIKEL
+   ========================================================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9eb9c1);
+scene.fog = new THREE.Fog(0x9eb9c1, 28, 72);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 160);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.querySelector('#game').appendChild(renderer.domElement);
+
+const hemiLight = new THREE.HemisphereLight(0xdcecff, 0x596047, 1.45);
+scene.add(hemiLight);
+
+const sun = new THREE.DirectionalLight(0xffe2b4, 2.3);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -38;
+sun.shadow.camera.right = 38;
+sun.shadow.camera.top = 38;
+sun.shadow.camera.bottom = -38;
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+scene.add(sun.target);
+
+const starGeo = new THREE.BufferGeometry();
+const starCount = 450;
+const starPos = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.random() * Math.PI * 0.45;
+  const r = 110;
+  starPos[i * 3] = Math.cos(theta) * Math.sin(phi) * r;
+  starPos[i * 3 + 1] = Math.cos(phi) * r + 15;
+  starPos[i * 3 + 2] = Math.sin(theta) * Math.sin(phi) * r;
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({ color: 0xf4f7ff, size: 0.75, transparent: true, opacity: 0 });
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
+
+const RAIN_COUNT = 550;
+const rainGeo = new THREE.BufferGeometry();
+const rainPositions = new Float32Array(RAIN_COUNT * 6);
+for (let i = 0; i < RAIN_COUNT; i++) {
+  const rx = (Math.random() - 0.5) * 34;
+  const ry = Math.random() * 18;
+  const rz = (Math.random() - 0.5) * 34;
+  rainPositions[i * 6] = rx;
+  rainPositions[i * 6 + 1] = ry;
+  rainPositions[i * 6 + 2] = rz;
+  rainPositions[i * 6 + 3] = rx - 0.08;
+  rainPositions[i * 6 + 4] = ry - 0.55;
+  rainPositions[i * 6 + 5] = rz;
+}
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+const rainMat = new THREE.LineBasicMaterial({ color: 0xa7cde8, transparent: true, opacity: 0.0 });
+const rainLines = new THREE.LineSegments(rainGeo, rainMat);
+scene.add(rainLines);
+
+/* =========================================================
+   4. UNENDLICHES CHUNK-SYSTEM, TÜREN & MÖBEL-GEOMETRIEN
+   ========================================================= */
+const CHUNK_SIZE = 8;
+const RENDER_CHUNKS = 5;
+const WATER_LEVEL = 0.25;
+
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const doorGeo = new THREE.BoxGeometry(0.96, 1.0, 0.22);
+const trapdoorGeo = new THREE.BoxGeometry(0.96, 0.2, 0.96);
+const gateGeo = new THREE.BoxGeometry(0.96, 0.85, 0.2);
+const bedGeo = new THREE.BoxGeometry(0.96, 0.52, 0.96);
+const tableGeo = new THREE.BoxGeometry(0.94, 0.82, 0.94);
+const chairGeo = new THREE.BoxGeometry(0.68, 0.72, 0.68);
+const sofaGeo = new THREE.BoxGeometry(0.96, 0.68, 0.84);
+const carpetGeo = new THREE.BoxGeometry(0.98, 0.08, 0.98);
+const mirrorGeo = new THREE.BoxGeometry(0.84, 0.92, 0.16);
+const anvilGeo = new THREE.BoxGeometry(0.76, 0.84, 0.56);
+const campfireGeo = new THREE.BoxGeometry(0.84, 0.36, 0.84);
+const torchGeo = new THREE.BoxGeometry(0.18, 0.72, 0.18);
+const lanternGeo = new THREE.BoxGeometry(0.52, 0.64, 0.52);
+const mushroomGeo = new THREE.BoxGeometry(0.42, 0.42, 0.42);
+const flowerGeo = new THREE.BoxGeometry(0.36, 0.65, 0.36);
+
+const blocks = new Map();
+const worldDeltas = new Map();
+const loadedChunks = new Map();
+const heatSources = new Map();
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+const key = (x, y, z) => `${x},${y},${z}`;
+const chunkKey = (cx, cz) => `${cx},${cz}`;
+
+function hash2D(x, z) {
+  const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453123;
+  return n - Math.floor(n);
+}
+
+function hash3D(x, y, z) {
+  const n = Math.sin(x * 127.1 + y * 269.5 + z * 311.7) * 43758.5453123;
+  return n - Math.floor(n);
+}
+
+function heightAt(x, z) {
+  const h =
+    1.8 +
+    Math.sin(x * 0.12) * 1.6 +
+    Math.cos(z * 0.11) * 1.5 +
+    Math.sin((x + z) * 0.07) * 2.1 +
+    Math.cos((x - z) * 0.19) * 0.75;
+  return Math.floor(h);
+}
+
+function applyDoorTransform(mesh) {
+  const { x, y, z, type, isOpen } = mesh.userData;
+  if (type === 'trapdoor') {
+    mesh.rotation.y = 0;
+    mesh.rotation.x = isOpen ? Math.PI * 0.48 : 0;
+    mesh.position.set(x, isOpen ? y : y - 0.38, isOpen ? z - 0.38 : z);
+  } else {
+    mesh.rotation.x = 0;
+    mesh.rotation.y = isOpen ? Math.PI * 0.5 : 0;
+    mesh.position.set(isOpen ? x - 0.36 : x, y, isOpen ? z + 0.36 : z);
+  }
+}
+
+function spawnBlockMesh(x, y, z, rawVal, chunkSet) {
+  const k = key(x, y, z);
+  if (blocks.has(k)) despawnBlockMesh(k);
+
+  const isOpen = typeof rawVal === 'string' && rawVal.endsWith(':open');
+  const type = isOpen ? rawVal.slice(0, -5) : rawVal;
+
+  let geo = boxGeo;
+  let yOffset = 0;
+  let castShadow = true;
+
+  if (type === 'wood_door' || type === 'oak_door' || type === 'iron_door') {
+    geo = doorGeo;
+  } else if (type === 'trapdoor') {
+    geo = trapdoorGeo;
+    yOffset = -0.38;
+  } else if (type === 'fence_gate') {
+    geo = gateGeo;
+    yOffset = -0.07;
+  } else if (type === 'bed_red' || type === 'bed_blue') {
+    geo = bedGeo;
+    yOffset = -0.24;
+  } else if (type === 'table') {
+    geo = tableGeo;
+    yOffset = -0.09;
+  } else if (type === 'chair' || type === 'throne') {
+    geo = chairGeo;
+    yOffset = -0.14;
+  } else if (type === 'sofa') {
+    geo = sofaGeo;
+    yOffset = -0.16;
+  } else if (type === 'carpet_red' || type === 'carpet_blue') {
+    geo = carpetGeo;
+    yOffset = -0.46;
+    castShadow = false;
+  } else if (type === 'mirror') {
+    geo = mirrorGeo;
+    castShadow = false;
+  } else if (type === 'anvil') {
+    geo = anvilGeo;
+    yOffset = -0.08;
+  } else if (type === 'campfire') {
+    geo = campfireGeo;
+    yOffset = -0.32;
+    castShadow = false;
+  } else if (type === 'torch') {
+    geo = torchGeo;
+    yOffset = -0.14;
+    castShadow = false;
+  } else if (type === 'lantern') {
+    geo = lanternGeo;
+    yOffset = -0.18;
+    castShadow = false;
+  } else if (type === 'mushroom') {
+    geo = mushroomGeo;
+    yOffset = -0.29;
+    castShadow = false;
+  } else if (type === 'poppy' || type === 'dandelion' || type === 'bamboo' || type === 'flower_pot') {
+    geo = flowerGeo;
+    yOffset = -0.17;
+    castShadow = false;
+  } else if (type === 'glass' || type === 'ice') {
+    castShadow = false;
+  }
+
+  const mesh = new THREE.Mesh(geo, mats[type] || mats.grass);
+  mesh.position.set(x, y + yOffset, z);
+  mesh.castShadow = castShadow;
+  mesh.receiveShadow = true;
+  mesh.userData = { x, y, z, type, isOpen };
+
+  if (DOOR_TYPES.has(type)) {
+    applyDoorTransform(mesh);
+  }
+
+  worldGroup.add(mesh);
+  blocks.set(k, mesh);
+  if (chunkSet) chunkSet.add(k);
+
+  if (LIGHT_BLOCKS.has(type)) {
+    if (!heatSources.has(k)) {
+      const isCamp = type === 'campfire' || type === 'magma';
+      const isStrong = type === 'glowstone' || type === 'sea_lantern' || type === 'lantern' || type === 'jack_o_lantern';
+      const lightColor = type === 'sea_lantern' ? 0x8ef2ee : isCamp ? 0xff7724 : 0xffcb5c;
+      const light = new THREE.PointLight(
+        lightColor,
+        isCamp ? 4.4 : isStrong ? 4.0 : 2.9,
+        isCamp ? 12 : isStrong ? 12 : 8.5,
+        1.5
+      );
+      light.position.set(x, y + 0.35, z);
+      scene.add(light);
+      heatSources.set(k, { light, x, y, z, power: isCamp ? 2.4 : 1.35, radius: isCamp ? 5.2 : 3.6 });
+    }
+  }
+}
+
+function despawnBlockMesh(k) {
+  const mesh = blocks.get(k);
+  if (!mesh) return;
+  worldGroup.remove(mesh);
+  blocks.delete(k);
+
+  if (heatSources.has(k)) {
+    scene.remove(heatSources.get(k).light);
+    heatSources.delete(k);
+  }
+}
+
+function generateChunk(cx, cz) {
+  const ck = chunkKey(cx, cz);
+  if (loadedChunks.has(ck)) return;
+  const chunkSet = new Set();
+  loadedChunks.set(ck, chunkSet);
+
+  const startX = cx * CHUNK_SIZE;
+  const startZ = cz * CHUNK_SIZE;
+
+  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const x = startX + lx;
+      const z = startZ + lz;
+      const h = heightAt(x, z);
+
+      for (let y = -3; y <= h; y++) {
+        const k = key(x, y, z);
+        if (worldDeltas.has(k)) continue;
+        let type = 'stone';
+        if (y === h) {
+          type = h <= 0 ? 'sand' : h >= 5 ? 'snow' : 'grass';
+        } else if (y > h - 3) {
+          type = h <= 0 ? 'sand' : 'dirt';
+        } else {
+          const oreR = hash3D(x, y, z);
+          if (oreR > 0.89) type = 'coal_ore';
+          else if (oreR < 0.055 && y <= 1) type = 'iron_ore';
+          else if (oreR >= 0.055 && oreR < 0.095 && y <= 1) type = 'copper_ore';
+          else if (oreR >= 0.095 && oreR < 0.118 && y <= -1) type = 'gold_ore';
+          else if (oreR >= 0.118 && oreR < 0.132 && y <= -2) type = 'diamond_ore';
+          else if (oreR >= 0.132 && oreR < 0.145 && y <= -2) type = 'emerald_ore';
+        }
+        spawnBlockMesh(x, y, z, type, chunkSet);
+      }
+
+      if (h > 0 && Math.hypot(x, z - 6) > 4.2) {
+        const r = hash2D(x, z);
+        if (r > 0.968 && h < 5) {
+          const trunkH = 3 + (hash2D(x + 11, z - 5) > 0.65 ? 1 : 0);
+          for (let ty = 1; ty <= trunkH; ty++) {
+            const tk = key(x, h + ty, z);
+            if (!worldDeltas.has(tk)) spawnBlockMesh(x, h + ty, z, 'wood', chunkSet);
+          }
+          for (let dx = -2; dx <= 2; dx++) {
+            for (let dz = -2; dz <= 2; dz++) {
+              for (let dy = trunkH - 1; dy <= trunkH + 1; dy++) {
+                const dist = Math.abs(dx) + Math.abs(dz) + (dy === trunkH + 1 ? 1 : 0);
+                if (dist < 4 && hash3D(x + dx, h + dy, z + dz) > 0.12) {
+                  const lk = key(x + dx, h + dy, z + dz);
+                  if (!worldDeltas.has(lk)) spawnBlockMesh(x + dx, h + dy, z + dz, 'leaves', chunkSet);
+                }
+              }
+            }
+          }
+        } else if (r < 0.024 && h >= 2) {
+          const rk = key(x, h + 1, z);
+          if (!worldDeltas.has(rk)) {
+            const sub = hash2D(x * 3, z * 3);
+            const rockType = sub > 0.68 ? 'coal_ore' : sub > 0.46 ? 'iron_ore' : sub > 0.30 ? 'copper_ore' : sub > 0.19 ? 'gold_ore' : sub > 0.11 ? 'diamond_ore' : sub > 0.05 ? 'emerald_ore' : 'stone';
+            spawnBlockMesh(x, h + 1, z, rockType, chunkSet);
+          }
+        } else if (r > 0.48 && r < 0.500) {
+          const mk = key(x, h + 1, z);
+          if (!worldDeltas.has(mk)) spawnBlockMesh(x, h + 1, z, 'mushroom', chunkSet);
+        } else if (r > 0.52 && r < 0.534 && h < 5) {
+          const fk = key(x, h + 1, z);
+          if (!worldDeltas.has(fk)) spawnBlockMesh(x, h + 1, z, hash2D(x, z + 9) > 0.5 ? 'poppy' : 'dandelion', chunkSet);
+        } else if (r > 0.55 && r < 0.556 && h < 4) {
+          const pk = key(x, h + 1, z);
+          if (!worldDeltas.has(pk)) spawnBlockMesh(x, h + 1, z, 'pumpkin', chunkSet);
+        }
+      }
+    }
+  }
+
+  worldDeltas.forEach((val, dk) => {
+    if (val === null) return;
+    const [dx, dy, dz] = dk.split(',').map(Number);
+    if (Math.floor(dx / CHUNK_SIZE) === cx && Math.floor(dz / CHUNK_SIZE) === cz) {
+      spawnBlockMesh(dx, dy, dz, val, chunkSet);
+    }
+  });
+}
+
+function unloadChunk(ck) {
+  const chunkSet = loadedChunks.get(ck);
+  if (!chunkSet) return;
+  chunkSet.forEach(k => despawnBlockMesh(k));
+  loadedChunks.delete(ck);
+}
+
+/* =========================================================
+   5. SPIELER, INVENTAR, HOTBAR & MODUS-STEUERUNG
+   ========================================================= */
+const HOTBAR_ITEMS = ['wood', 'plank', 'wood_door', 'chair', 'table', 'bed_red', 'glass', 'lantern', 'apple'];
+
+const ITEM_META = {
+  wood_door:      { icon: '🚪', label: 'Holztür',            cat: 'furniture', catLabel: 'Tür' },
+  oak_door:       { icon: '🚪', label: 'Edle Eichentür',     cat: 'furniture', catLabel: 'Tür' },
+  iron_door:      { icon: '🛡️', label: 'Eisentür',           cat: 'furniture', catLabel: 'Tür' },
+  trapdoor:       { icon: '🪵', label: 'Falltür',            cat: 'furniture', catLabel: 'Tür' },
+  fence_gate:     { icon: '🚧', label: 'Gartentor',          cat: 'furniture', catLabel: 'Tür' },
+  chair:          { icon: '🪑', label: 'Holzstuhl',          cat: 'furniture', catLabel: 'Möbel' },
+  table:          { icon: '🪵', label: 'Holztisch',          cat: 'furniture', catLabel: 'Möbel' },
+  sofa:           { icon: '🛋️', label: 'Rotes Sofa',         cat: 'furniture', catLabel: 'Möbel' },
+  bed_red:        { icon: '🛏️', label: 'Rotes Bett',         cat: 'furniture', catLabel: 'Möbel' },
+  bed_blue:       { icon: '🛏️', label: 'Blaues Bett',        cat: 'furniture', catLabel: 'Möbel' },
+  wardrobe:       { icon: '🚪', label: 'Kleiderschrank',     cat: 'furniture', catLabel: 'Möbel' },
+  cabinet:        { icon: '🗄️', label: 'Küchenschrank',      cat: 'furniture', catLabel: 'Möbel' },
+  throne:         { icon: '👑', label: 'Königsthron',        cat: 'furniture', catLabel: 'Möbel' },
+  carpet_red:     { icon: '🟥', label: 'Roter Teppich',      cat: 'furniture', catLabel: 'Teppich' },
+  carpet_blue:    { icon: '🟦', label: 'Blauer Teppich',     cat: 'furniture', catLabel: 'Teppich' },
+  flower_pot:     { icon: '🪴', label: 'Blumentopf',         cat: 'furniture', catLabel: 'Möbel' },
+  painting:       { icon: '🖼️', label: 'Gemälde-Block',      cat: 'furniture', catLabel: 'Möbel' },
+  clock_block:    { icon: '🕰️', label: 'Standuhr',           cat: 'furniture', catLabel: 'Möbel' },
+  mirror:         { icon: '🪞', label: 'Wandspiegel',        cat: 'furniture', catLabel: 'Möbel' },
+  barrel:         { icon: '🛢️', label: 'Holzfass',           cat: 'furniture', catLabel: 'Möbel' },
+  anvil:          { icon: '⚒️', label: 'Amboss',             cat: 'furniture', catLabel: 'Möbel' },
+  grass:          { icon: '🟩', label: 'Grasblock',          cat: 'blocks', catLabel: 'Baublock' },
+  dirt:           { icon: '🟫', label: 'Erde',               cat: 'blocks', catLabel: 'Baublock' },
+  stone:          { icon: '🪨', label: 'Stein',              cat: 'blocks', catLabel: 'Baublock' },
+  cobble:         { icon: '🧱', label: 'Pflasterstein',      cat: 'blocks', catLabel: 'Baublock' },
+  stone_brick:    { icon: '🏛️', label: 'Steinziegel',        cat: 'blocks', catLabel: 'Baublock' },
+  mossy_brick:    { icon: '🌿', label: 'Bemooste Ziegel',    cat: 'blocks', catLabel: 'Baublock' },
+  wood:           { icon: '🪵', label: 'Holzstamm',          cat: 'blocks', catLabel: 'Baublock' },
+  plank:          { icon: '🪚', label: 'Holzbretter',        cat: 'blocks', catLabel: 'Baublock' },
+  brick:          { icon: '🟥', label: 'Ziegelstein',        cat: 'blocks', catLabel: 'Baublock' },
+  sand:           { icon: '🟨', label: 'Sand',               cat: 'blocks', catLabel: 'Baublock' },
+  sandstone:      { icon: '🏜️', label: 'Sandstein',          cat: 'blocks', catLabel: 'Baublock' },
+  red_sandstone:  { icon: '🧡', label: 'Roter Sandstein',    cat: 'blocks', catLabel: 'Baublock' },
+  granite:        { icon: '🪨', label: 'Granit',             cat: 'blocks', catLabel: 'Baublock' },
+  basalt:         { icon: '⬛', label: 'Basalt',             cat: 'blocks', catLabel: 'Baublock' },
+  terracotta:     { icon: '🏺', label: 'Terrakotta',         cat: 'blocks', catLabel: 'Baublock' },
+  quartz_block:   { icon: '⬜', label: 'Quarzblock',         cat: 'blocks', catLabel: 'Baublock' },
+  glass:          { icon: '🪟', label: 'Glasblock',          cat: 'blocks', catLabel: 'Baublock' },
+  snow:           { icon: '❄️', label: 'Schneeblock',        cat: 'blocks', catLabel: 'Baublock' },
+  ice:            { icon: '🧊', label: 'Eisblock',           cat: 'blocks', catLabel: 'Baublock' },
+  obsidian:       { icon: '🟪', label: 'Obsidian',           cat: 'blocks', catLabel: 'Baublock' },
+  copper_block:   { icon: '🟧', label: 'Kupferblock',        cat: 'blocks', catLabel: 'Erzblock' },
+  gold_block:     { icon: '🟨', label: 'Goldblock',          cat: 'blocks', catLabel: 'Erzblock' },
+  diamond_block:  { icon: '💠', label: 'Diamantblock',       cat: 'blocks', catLabel: 'Erzblock' },
+  emerald_block:  { icon: '💚', label: 'Smaragdblock',       cat: 'blocks', catLabel: 'Erzblock' },
+  lapis_block:    { icon: '🔷', label: 'Lapislazuli-Block',  cat: 'blocks', catLabel: 'Erzblock' },
+  amethyst_block: { icon: '🔮', label: 'Amethystblock',      cat: 'blocks', catLabel: 'Kristall' },
+  soul_sand:      { icon: '🤎', label: 'Seelensand',         cat: 'blocks', catLabel: 'Baublock' },
+  wool_white:     { icon: '⬜', label: 'Weiße Wolle',        cat: 'blocks', catLabel: 'Wolle' },
+  wool_red:       { icon: '🟥', label: 'Rote Wolle',         cat: 'blocks', catLabel: 'Wolle' },
+  wool_blue:      { icon: '🟦', label: 'Blaue Wolle',        cat: 'blocks', catLabel: 'Wolle' },
+  wool_green:     { icon: '🟩', label: 'Grüne Wolle',        cat: 'blocks', catLabel: 'Wolle' },
+  wool_yellow:    { icon: '🟨', label: 'Gelbe Wolle',        cat: 'blocks', catLabel: 'Wolle' },
+  wool_purple:    { icon: '🟪', label: 'Lila Wolle',         cat: 'blocks', catLabel: 'Wolle' },
+  torch:          { icon: '🕯', label: 'Fackel',             cat: 'decor',  catLabel: 'Licht' },
+  lantern:        { icon: '🏮', label: 'Laterne',            cat: 'decor',  catLabel: 'Licht' },
+  glowstone:      { icon: '✨', label: 'Glowstone',          cat: 'decor',  catLabel: 'Leuchtblock' },
+  sea_lantern:    { icon: '💠', label: 'Seelaterne',         cat: 'decor',  catLabel: 'Leuchtblock' },
+  jack_o_lantern: { icon: '🎃', label: 'Kürbislaterne',      cat: 'decor',  catLabel: 'Licht' },
+  magma:          { icon: '🌋', label: 'Magmablock',         cat: 'decor',  catLabel: 'Wärmeblock' },
+  campfire:       { icon: '🔥', label: 'Lagerfeuer',         cat: 'decor',  catLabel: 'Licht/Wärme' },
+  furnace:        { icon: '♨️', label: 'Schmelzofen',        cat: 'decor',  catLabel: 'Werkstation' },
+  workbench:      { icon: '⚒️', label: 'Werkbank-Block',     cat: 'decor',  catLabel: 'Werkstation' },
+  chest:          { icon: '📦', label: 'Vorratstruhe',       cat: 'decor',  catLabel: 'Lager' },
+  bookshelf:      { icon: '📚', label: 'Bücherregal',        cat: 'decor',  catLabel: 'Dekoration' },
+  ladder:         { icon: '🪜', label: 'Leiterblock',        cat: 'decor',  catLabel: 'Deko/Bau' },
+  fence:          { icon: '🪵', label: 'Zaunblock',          cat: 'decor',  catLabel: 'Deko/Bau' },
+  tnt:            { icon: '🧨', label: 'TNT-Block',          cat: 'decor',  catLabel: 'Spezial' },
+  hay:            { icon: '🌾', label: 'Heuballen',          cat: 'decor',  catLabel: 'Dekoration' },
+  leaves:         { icon: '🌿', label: 'Laubblock',          cat: 'nature', catLabel: 'Natur' },
+  pumpkin:        { icon: '🎃', label: 'Kürbis',             cat: 'nature', catLabel: 'Pflanze' },
+  cactus:         { icon: '🌵', label: 'Kaktus',             cat: 'nature', catLabel: 'Pflanze' },
+  bamboo:         { icon: '🎍', label: 'Bambus',             cat: 'nature', catLabel: 'Pflanze' },
+  poppy:          { icon: '🌹', label: 'Mohnblume',          cat: 'nature', catLabel: 'Blume' },
+  dandelion:      { icon: '🌼', label: 'Löwenzahn',          cat: 'nature', catLabel: 'Blume' },
+  coal:           { icon: '⚫', label: 'Kohle',              cat: 'ores',   catLabel: 'Brennstoff' },
+  iron_ore:       { icon: '🟤', label: 'Eisenerz',           cat: 'ores',   catLabel: 'Erz' },
+  iron:           { icon: '🔩', label: 'Eisenbarren',        cat: 'ores',   catLabel: 'Metall' },
+  copper_ore:     { icon: '🟠', label: 'Kupfererz',          cat: 'ores',   catLabel: 'Erz' },
+  copper:         { icon: '🥉', label: 'Kupferbarren',       cat: 'ores',   catLabel: 'Metall' },
+  gold_ore:       { icon: '🟡', label: 'Golderz',            cat: 'ores',   catLabel: 'Erz' },
+  gold:           { icon: '🥇', label: 'Goldbarren',         cat: 'ores',   catLabel: 'Edelmetall' },
+  diamond_ore:    { icon: '🔹', label: 'Diamanterz',         cat: 'ores',   catLabel: 'Seltenes Erz' },
+  diamond:        { icon: '💎', label: 'Diamant',            cat: 'ores',   catLabel: 'Edelstein' },
+  emerald_ore:    { icon: '🟢', label: 'Smaragderz',         cat: 'ores',   catLabel: 'Seltenes Erz' },
+  emerald:        { icon: '💚', label: 'Smaragd',            cat: 'ores',   catLabel: 'Edelstein' },
+  lapis:          { icon: '🔷', label: 'Lapislazuli',        cat: 'ores',   catLabel: 'Mineral' },
+  amethyst:       { icon: '🔮', label: 'Amethystsplitter',   cat: 'ores',   catLabel: 'Kristall' },
+  quartz:         { icon: '🤍', label: 'Quarz',              cat: 'ores',   catLabel: 'Mineral' },
+  flint:          { icon: '🪨', label: 'Feuerstein',         cat: 'ores',   catLabel: 'Rohstoff' },
+  gunpowder:      { icon: '💥', label: 'Schießpulver',       cat: 'ores',   catLabel: 'Rohstoff' },
+  feather:        { icon: '🪶', label: 'Feder',              cat: 'ores',   catLabel: 'Rohstoff' },
+  tool_stonePick:   { icon: '⛏', label: 'Steinspitzhacke',    cat: 'tools', catLabel: 'Werkzeug', toolKey: 'stonePick' },
+  tool_ironPick:    { icon: '🔩', label: 'Eisenspitzhacke',    cat: 'tools', catLabel: 'Werkzeug', toolKey: 'ironPick' },
+  tool_diamondPick: { icon: '💎', label: 'Diamantspitzhacke',  cat: 'tools', catLabel: 'Werkzeug', toolKey: 'diamondPick' },
+  tool_emeraldPick: { icon: '💚', label: 'Smaragdspitzhacke',  cat: 'tools', catLabel: 'Meister-Hacke', toolKey: 'emeraldPick' },
+  tool_sword:       { icon: '⚔️', label: 'Eisenklinge',        cat: 'tools', catLabel: 'Waffe',    toolKey: 'sword' },
+  tool_diamondSword:{ icon: '🗡', label: 'Diamantschwert',     cat: 'tools', catLabel: 'Waffe',    toolKey: 'diamondSword' },
+  tool_emeraldSword:{ icon: '🔰', label: 'Smaragdschwert',     cat: 'tools', catLabel: 'Meister-Waffe', toolKey: 'emeraldSword' },
+  apple:           { icon: '🍎', label: 'Apfel',             cat: 'food', catLabel: 'Nahrung' },
+  mushroom:        { icon: '🍄', label: 'Waldpilz',          cat: 'food', catLabel: 'Nahrung' },
+  carrot:          { icon: '🥕', label: 'Karotte',           cat: 'food', catLabel: 'Nahrung' },
+  potato:          { icon: '🥔', label: 'Kartoffel',         cat: 'food', catLabel: 'Nahrung' },
+  melon:           { icon: '🍉', label: 'Melonenscheibe',    cat: 'food', catLabel: 'Nahrung' },
+  cooked_mushroom: { icon: '🍖', label: 'Gebratener Pilz',   cat: 'food', catLabel: 'Gericht' },
+  cooked_apple:    { icon: '🥧', label: 'Bratapfel',         cat: 'food', catLabel: 'Gericht' },
+  baked_potato:    { icon: '🥔', label: 'Ofenkartoffel',     cat: 'food', catLabel: 'Gericht' },
+  bread:           { icon: '🍞', label: 'Brot',              cat: 'food', catLabel: 'Nahrung' },
+  pumpkin_pie:     { icon: '🥧', label: 'Kürbiskuchen',      cat: 'food', catLabel: 'Gericht' },
+  honey_bottle:    { icon: '🍯', label: 'Honigglas',         cat: 'food', catLabel: 'Nahrung' },
+  golden_apple:    { icon: '🍏', label: 'Goldener Apfel',    cat: 'food', catLabel: 'Spezial' },
+  potion_heal:     { icon: '🧪', label: 'Heiltrank',         cat: 'food', catLabel: 'Trank' },
+  potion_haste:    { icon: '⚡', label: 'Eile-Trank (60s)',  cat: 'food', catLabel: 'Trank' }
+};
+
+const ALL_ITEMS = Object.keys(ITEM_META);
+
+const FOOD_STATS = {
+  golden_apple:    { hunger: 100, hp: 100, name: 'Goldener Apfel' },
+  potion_heal:     { hunger: 15,  hp: 85,  name: 'Heiltrank' },
+  potion_haste:    { hunger: 15,  hp: 15,  name: 'Eile-Trank', hasteSec: 60 },
+  pumpkin_pie:     { hunger: 60,  hp: 35,  name: 'Kürbiskuchen' },
+  bread:           { hunger: 45,  hp: 25,  name: 'Brot' },
+  cooked_mushroom: { hunger: 42,  hp: 22,  name: 'Gebratener Pilz' },
+  baked_potato:    { hunger: 40,  hp: 18,  name: 'Ofenkartoffel' },
+  cooked_apple:    { hunger: 38,  hp: 20,  name: 'Bratapfel' },
+  honey_bottle:    { hunger: 32,  hp: 22,  name: 'Honigglas' },
+  apple:           { hunger: 25,  hp: 12,  name: 'Apfel' },
+  carrot:          { hunger: 22,  hp: 10,  name: 'Karotte' },
+  melon:           { hunger: 20,  hp: 12,  name: 'Melonenscheibe' },
+  mushroom:        { hunger: 16,  hp: 6,   name: 'Waldpilz' },
+  potato:          { hunger: 14,  hp: 4,   name: 'Kartoffel' }
+};
+
+const spawnH = heightAt(0, 6);
+const player = {
+  x: 0,
+  y: spawnH + 0.51,
+  z: 6,
+  vy: 0,
+  radius: 0.32,
+  height: 1.68,
+  eyeHeight: 1.52,
+  onGround: false,
+  flying: false,
+  hp: 100,
+  hunger: 100,
+  warmth: 100,
+  hasteTimer: 0,
+  sheltered: false,
+  nearHeat: false,
+  dead: false
+};
+
+const state = {
+  creativeMode: false,
+  inv: {},
+  tools: {
+    stonePick: false,
+    ironPick: false,
+    diamondPick: false,
+    emeraldPick: false,
+    sword: false,
+    diamondSword: false,
+    emeraldSword: false
+  },
+  stats: {
+    placedLight: false,
+    builtRoof: false,
+    smeltedIron: false,
+    survivedNight1: false,
+    defeatedEnemies: 0
+  },
+  questIndex: 0,
+  worldTime: 0.4
+};
+
+ALL_ITEMS.forEach(it => {
+  if (!ITEM_META[it].toolKey) state.inv[it] = 0;
+});
+state.inv.apple = 2;
+
+let lastPlayerChunkX = null;
+let lastPlayerChunkZ = null;
+
+function updateChunks(force = false) {
+  const pcx = Math.floor(player.x / CHUNK_SIZE);
+  const pcz = Math.floor(player.z / CHUNK_SIZE);
+  if (!force && pcx === lastPlayerChunkX && pcz === lastPlayerChunkZ) return;
+  lastPlayerChunkX = pcx;
+  lastPlayerChunkZ = pcz;
+
+  const needed = new Set();
+  for (let dx = -RENDER_CHUNKS; dx <= RENDER_CHUNKS; dx++) {
+    for (let dz = -RENDER_CHUNKS; dz <= RENDER_CHUNKS; dz++) {
+      const cx = pcx + dx;
+      const cz = pcz + dz;
+      const ck = chunkKey(cx, cz);
+      needed.add(ck);
+      if (!loadedChunks.has(ck)) generateChunk(cx, cz);
+    }
+  }
+
+  for (const ck of loadedChunks.keys()) {
+    if (!needed.has(ck)) unloadChunk(ck);
+  }
+}
+
+function setWorldBlock(x, y, z, rawVal, fromNetwork = false) {
+  const k = key(x, y, z);
+  worldDeltas.set(k, rawVal);
+  const cx = Math.floor(x / CHUNK_SIZE);
+  const cz = Math.floor(z / CHUNK_SIZE);
+  const chunkSet = loadedChunks.get(chunkKey(cx, cz));
+  if (rawVal === null) {
+    despawnBlockMesh(k);
+    if (chunkSet) chunkSet.delete(k);
+  } else {
+    spawnBlockMesh(x, y, z, rawVal, chunkSet);
+  }
+
+  if (!fromNetwork && mpEnabled && db && firebaseMod) {
+    firebaseMod.set(firebaseMod.ref(db, `worlds/${WORLD_ID}/blocks/${k}`), rawVal).catch(() => {});
+  }
+}
+
+function toggleDoorBlock(mesh) {
+  const { x, y, z, type, isOpen } = mesh.userData;
+  const nextOpen = !isOpen;
+  const rawVal = nextOpen ? `${type}:open` : type;
+  setWorldBlock(x, y, z, rawVal, false);
+  sfx.door(nextOpen);
+  showMessage(nextOpen ? `🚪 ${BLOCK_INFO[type].name.split(' (')[0]} geöffnet` : `🚪 ${BLOCK_INFO[type].name.split(' (')[0]} geschlossen`);
+}
+
+const water = new THREE.Mesh(new THREE.PlaneGeometry(180, 180), mats.water);
+water.rotation.x = -Math.PI / 2;
+water.position.set(0, WATER_LEVEL, 0);
+water.receiveShadow = true;
+scene.add(water);
+
+/* =========================================================
+   6. BLOCK-HIGHLIGHT, RISS-OVERLAY & 3D-PARTIKEL
+   ========================================================= */
+const highlightMesh = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.015, 1.015, 1.015)),
+  new THREE.LineBasicMaterial({ color: 0xf6e6b4, transparent: true, opacity: 0.9 })
+);
+highlightMesh.visible = false;
+scene.add(highlightMesh);
+
+const crackMat = new THREE.MeshBasicMaterial({
+  color: 0x090b0c,
+  wireframe: true,
+  transparent: true,
+  opacity: 0.0
+});
+const crackMesh = new THREE.Mesh(new THREE.BoxGeometry(1.022, 1.022, 1.022), crackMat);
+crackMesh.visible = false;
+scene.add(crackMesh);
+
+const particles = [];
+const particleGeo = new THREE.BoxGeometry(0.14, 0.14, 0.14);
+
+function spawnBreakParticles(x, y, z, colorHex) {
+  const mat = new THREE.MeshStandardMaterial({ color: colorHex || 0x888888, roughness: 0.9 });
+  for (let i = 0; i < 12; i++) {
+    const p = new THREE.Mesh(particleGeo, mat);
+    p.position.set(
+      x + (Math.random() - 0.5) * 0.6,
+      y + (Math.random() - 0.5) * 0.6,
+      z + (Math.random() - 0.5) * 0.6
+    );
+    scene.add(p);
+    particles.push({
+      mesh: p,
+      vx: (Math.random() - 0.5) * 4.2,
+      vy: 1.8 + Math.random() * 3.2,
+      vz: (Math.random() - 0.5) * 4.2,
+      life: 0.45 + Math.random() * 0.25
+    });
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      particles.splice(i, 1);
+      continue;
+    }
+    p.vy -= 14 * dt;
+    p.mesh.position.x += p.vx * dt;
+    p.mesh.position.y += p.vy * dt;
+    p.mesh.position.z += p.vz * dt;
+    p.mesh.rotation.x += 6 * dt;
+    p.mesh.rotation.y += 5 * dt;
+    p.mesh.scale.setScalar(Math.max(0.1, p.life * 1.6));
+  }
+}
+
+const jumpTapTimestamps = [];
+const TRIPLE_TAP_WINDOW_MS = 650;
+let isHoldingJumpTouch = false;
+let isHoldingDescendTouch = false;
+let yaw = 0;
+let pitch = 0;
+let locked = false;
+let gameStarted = false;
+let invOpen = false;
+let selected = 0;
+let isRaining = false;
+let weatherTimer = 45;
+const keys = {};
+let joyX = 0;
+let joyY = 0;
+
+function syncFlyUI() {
+  const badge = document.querySelector('#flyBadge');
+  if (badge) badge.style.display = player.flying ? 'inline-block' : 'none';
+  const descBtn = document.querySelector('#descendBtn');
+  if (descBtn) descBtn.classList.toggle('visible', player.flying);
+  if (!player.flying) {
+    isHoldingJumpTouch = false;
+    isHoldingDescendTouch = false;
+  }
+}
+
+function registerJumpPress() {
+  if (!gameStarted || invOpen || player.dead) return;
+  const now = performance.now();
+  jumpTapTimestamps.push(now);
+  while (jumpTapTimestamps.length > 0 && now - jumpTapTimestamps[0] > TRIPLE_TAP_WINDOW_MS) {
+    jumpTapTimestamps.shift();
+  }
+
+  if (jumpTapTimestamps.length >= 3) {
+    jumpTapTimestamps.length = 0;
+    player.flying = !player.flying;
+    player.vy = 0;
+    player.onGround = false;
+    sfx.flyToggle(player.flying);
+    syncFlyUI();
+    showMessage(
+      player.flying
+        ? '🕊 Flugmodus AN (Space/⤒ Hoch · Shift/⤓ Runter)'
+        : '🪂 Flugmodus AUS'
+    );
+    return;
+  }
+
+  if (!player.flying) {
+    const inWater = player.y < WATER_LEVEL - 0.1;
+    if (player.onGround || inWater) {
+      player.vy = inWater ? 5.2 : 7.5;
+      player.onGround = false;
+      sfx.jump();
+    }
+  }
+}
+
+function isToolItem(itemId) {
+  return Boolean(ITEM_META[itemId] && ITEM_META[itemId].toolKey);
+}
+
+function hasItem(itemId, count = 1) {
+  if (isToolItem(itemId)) {
+    return state.creativeMode || !!state.tools[ITEM_META[itemId].toolKey];
+  }
+  return state.creativeMode || (state.inv[itemId] || 0) >= count;
+}
+
+function consumeItem(itemId, count = 1) {
+  if (state.creativeMode || isToolItem(itemId)) return true;
+  if ((state.inv[itemId] || 0) < count) return false;
+  state.inv[itemId] -= count;
+  return true;
+}
+
+function addItem(itemId, count = 1) {
+  if (state.creativeMode || isToolItem(itemId)) return;
+  state.inv[itemId] = (state.inv[itemId] || 0) + count;
+}
+
+function formatItemCount(itemId) {
+  if (isToolItem(itemId)) {
+    return hasItem(itemId) ? '✓' : '—';
+  }
+  return state.creativeMode ? '∞' : (state.inv[itemId] || 0);
+}
+
+const QUESTS = [
+  {
+    text: 'Sammle 4× Holz & 3× Stein',
+    rewardText: '+2 Äpfel',
+    prog: () => `Holz: ${Math.min(4, state.inv.wood)}/4 · Stein: ${Math.min(3, state.inv.stone)}/3`,
+    done: () => state.inv.wood >= 4 && state.inv.stone >= 3,
+    reward: () => { addItem('apple', 2); }
+  },
+  {
+    text: 'Stelle eine Steinspitzhacke her',
+    rewardText: '+2 Kohle',
+    prog: () => (state.tools.stonePick || state.tools.ironPick || state.tools.diamondPick || state.tools.emeraldPick) ? 'Erledigt!' : 'Öffne Werkbank [E]',
+    done: () => state.tools.stonePick || state.tools.ironPick || state.tools.diamondPick || state.tools.emeraldPick,
+    reward: () => { addItem('coal', 2); }
+  },
+  {
+    text: 'Platziere eine Fackel, Laterne oder ein Lagerfeuer',
+    rewardText: '+4 Holzbretter',
+    prog: () => state.stats.placedLight ? 'Erledigt!' : 'Crafte & platziere Licht [Rechtsklick]',
+    done: () => state.stats.placedLight,
+    reward: () => { addItem('plank', 4); }
+  },
+  {
+    text: 'Errichte ein schützendes Dach über dir',
+    rewardText: '+2 Bratpilze',
+    prog: () => player.sheltered ? 'Dach erkannt!' : 'Baue Blöcke über deinen Kopf',
+    done: () => player.sheltered || state.stats.builtRoof,
+    reward: () => { addItem('cooked_mushroom', 2); }
+  },
+  {
+    text: 'Überlebe die erste Nacht bis Tag 2',
+    rewardText: '+3 Eisenerz',
+    prog: () => `Aktuell: Tag ${getDayNumber()}`,
+    done: () => getDayNumber() >= 2 || state.stats.survivedNight1,
+    reward: () => { addItem('iron_ore', 3); }
+  },
+  {
+    text: 'Schmelze 1× Eisenbarren im Ofen',
+    rewardText: '+1 Eisenbarren',
+    prog: () => `Eisenbarren: ${state.inv.iron}/1`,
+    done: () => state.stats.smeltedIron || state.inv.iron >= 1,
+    reward: () => { addItem('iron', 1); }
+  }
+];
+
+const bottomBar = document.querySelector('#bottom');
+function buildHotbarDOM() {
+  bottomBar.innerHTML = '';
+  HOTBAR_ITEMS.forEach((it, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (i === selected ? ' active' : '');
+    slot.title = `${ITEM_META[it].label} [${i + 1}]`;
+    slot.innerHTML = `<span class="key">${i + 1}</span>${ITEM_META[it].icon}<small id="count-${it}">${formatItemCount(it)}</small>`;
+    slot.onclick = () => selectSlot(i);
+    bottomBar.appendChild(slot);
+  });
+}
+buildHotbarDOM();
+
+function selectSlot(i) {
+  selected = (i + HOTBAR_ITEMS.length) % HOTBAR_ITEMS.length;
+  [...bottomBar.children].forEach((el, idx) => el.classList.toggle('active', idx === selected));
+  const hint = document.querySelector('#activeSlotHint');
+  if (hint) hint.textContent = `Aktiver Slot: ${selected + 1} (${ITEM_META[HOTBAR_ITEMS[selected]].label})`;
+  renderModalHotbar();
+}
+selectSlot(0);
+
+function applyCreativeModeUI() {
+  const isCr = state.creativeMode;
+  document.querySelector('#modeSub').textContent = isCr ? '/ KREATIV' : '/ SURVIVAL';
+  document.querySelector('#modeSub').style.color = isCr ? '#9df0a8' : '#d96b5e';
+  document.querySelector('#creativeBadge').style.display = isCr ? 'inline-block' : 'none';
+  document.querySelectorAll('#creativeToggleBtn, #mobileCreativeBtn').forEach(btn => {
+    btn.classList.toggle('modeActive', isCr);
+  });
+
+  if (isCr) {
+    player.hp = 100;
+    player.hunger = 100;
+    player.warmth = 100;
+    player.dead = false;
+    clearAllEnemies();
+    refreshVitalsUI(true);
+  }
+}
+
+function setCreativeMode(enable, silent = false) {
+  state.creativeMode = !!enable;
+  applyCreativeModeUI();
+  refreshInventoryUI();
+  if (!silent) {
+    showMessage(
+      state.creativeMode
+        ? `✨ Kreativmodus aktiv: Alle ${ALL_ITEMS.length} Items ∞, kein Schaden & keine Monster`
+        : '⚔️ Survival-Modus aktiv'
+    );
+  }
+}
+
+function getDayNumber() {
+  const cycleAngle = state.worldTime * 0.048 + 0.45;
+  return Math.max(1, Math.floor((cycleAngle + Math.PI * 0.5) / (Math.PI * 2)) + 1);
+}
+
+function checkQuests() {
+  if (state.creativeMode) {
+    document.querySelector('#questNum').textContent = '∞';
+    document.querySelector('#questRewardBadge').textContent = 'KREATIV';
+    document.querySelector('#questText').textContent = `Freies Bauen (${ALL_ITEMS.length} Items ∞)`;
+    document.querySelector('#questProg').textContent = '3× Sprung = Fliegen';
+    return;
+  }
+
+  if (state.questIndex >= QUESTS.length) {
+    document.querySelector('#questNum').textContent = 'ALLE';
+    document.querySelector('#questRewardBadge').textContent = '★ MEISTER';
+    document.querySelector('#questText').textContent = 'Alle Überlebensziele abgeschlossen!';
+    document.querySelector('#questProg').textContent = `Besiegte Schattenwesen: ${state.stats.defeatedEnemies}`;
+    return;
+  }
+
+  const q = QUESTS[state.questIndex];
+  if (q.done()) {
+    q.reward();
+    state.questIndex++;
+    sfx.quest();
+    showMessage(`★ Aufgabe erfüllt! Belohnung: ${q.rewardText}`);
+    refreshInventoryUI();
+    checkQuests();
+    return;
+  }
+
+  document.querySelector('#questNum').textContent = `${state.questIndex + 1}/${QUESTS.length}`;
+  document.querySelector('#questRewardBadge').textContent = q.rewardText;
+  document.querySelector('#questText').textContent = q.text;
+  document.querySelector('#questProg').textContent = q.prog();
+}
+
+function refreshInventoryUI() {
+  buildHotbarDOM();
+
+  const fltAll = document.querySelector('#flt-all');
+  if (fltAll) fltAll.textContent = `Alle (${ALL_ITEMS.length})`;
+
+  const toolChecks = [
+    ['stonePick', state.creativeMode || state.tools.stonePick],
+    ['ironPick', state.creativeMode || state.tools.ironPick],
+    ['diamondPick', state.creativeMode || state.tools.diamondPick],
+    ['emeraldPick', state.creativeMode || state.tools.emeraldPick],
+    ['sword', state.creativeMode || state.tools.sword],
+    ['diamondSword', state.creativeMode || state.tools.diamondSword],
+    ['emeraldSword', state.creativeMode || state.tools.emeraldSword]
+  ];
+  toolChecks.forEach(([k, owned]) => {
+    const st = document.querySelector('#st-' + k);
+    if (st) st.textContent = owned ? '✓' : '';
+    const btn = document.querySelector(`[data-craft="${k}"]`);
+    if (btn) {
+      btn.disabled = owned;
+      btn.textContent = owned ? 'Aktiv' : 'Herstellen';
+    }
+  });
+
+  refreshBuffsUI();
+  checkQuests();
+  renderExpandedInventoryUI();
+}
+
+let lastVitalsHash = '';
+function refreshVitalsUI(force = false) {
+  const hpI = state.creativeMode ? 100 : Math.ceil(player.hp);
+  const huI = state.creativeMode ? 100 : Math.ceil(player.hunger);
+  const waI = state.creativeMode ? 100 : Math.ceil(player.warmth);
+  const hash = `${hpI}-${huI}-${waI}-${state.creativeMode}`;
+  if (!force && hash === lastVitalsHash) return;
+  lastVitalsHash = hash;
+
+  document.querySelector('#hpv').textContent = state.creativeMode ? '∞ (100)' : hpI;
+  document.querySelector('#hp').style.width = `${hpI}%`;
+  document.querySelector('#hv').textContent = state.creativeMode ? '∞ (100)' : huI;
+  document.querySelector('#hunger').style.width = `${huI}%`;
+  document.querySelector('#tv').textContent = state.creativeMode ? '∞ (100%)' : `${waI}%`;
+  document.querySelector('#temp').style.width = `${waI}%`;
+}
+
+let lastBuffHash = '';
+function refreshBuffsUI() {
+  const hasteSec = Math.ceil(player.hasteTimer);
+  const h = `${state.creativeMode}-${player.flying}-${hasteSec}-${state.tools.emeraldPick}-${state.tools.diamondPick}-${state.tools.ironPick}-${state.tools.stonePick}-${state.tools.emeraldSword}-${state.tools.diamondSword}-${state.tools.sword}-${player.nearHeat}-${player.sheltered}`;
+  if (h === lastBuffHash) return;
+  lastBuffHash = h;
+
+  const pills = [];
+  if (player.flying) pills.push('<span class="pill" style="color:#a8e1ff">🕊 Fliegend</span>');
+  if (state.creativeMode) pills.push('<span class="pill" style="color:#9df0a8">✨ Unverwundbar</span>');
+  if (hasteSec > 0) pills.push(`<span class="pill" style="color:#ffe47a">⚡ Eile (${hasteSec}s)</span>`);
+  if (state.creativeMode || state.tools.emeraldPick) pills.push('<span class="pill" style="color:#7aff9e">💚 Smaragdspitzhacke</span>');
+  else if (state.tools.diamondPick) pills.push('<span class="pill" style="color:#8cf2f7">💎 Diamantspitzhacke</span>');
+  else if (state.tools.ironPick) pills.push('<span class="pill">🔩 Eisenspitzhacke</span>');
+  else if (state.tools.stonePick) pills.push('<span class="pill">⛏ Steinspitzhacke</span>');
+  if (state.creativeMode || state.tools.emeraldSword) pills.push('<span class="pill" style="color:#7aff9e">🔰 Smaragdschwert</span>');
+  else if (state.tools.diamondSword) pills.push('<span class="pill" style="color:#8cf2f7">🗡 Diamantschwert</span>');
+  else if (state.tools.sword) pills.push('<span class="pill">⚔️ Eisenklinge</span>');
+  if (player.nearHeat) pills.push('<span class="pill" style="color:#ffbe85">🔥 Wärmequelle</span>');
+  if (player.sheltered) pills.push('<span class="pill" style="color:#9ee3a8">🏠 Dachschutz</span>');
+  document.querySelector('#buffs').innerHTML = pills.join('');
+}
+
+function showMessage(text) {
+  const el = document.querySelector('#message');
+  el.textContent = text;
+  el.style.opacity = 1;
+  clearTimeout(showMessage.timer);
+  showMessage.timer = setTimeout(() => { el.style.opacity = 0; }, 2100);
+}
+
+/* =========================================================
+   7. SPEICHERN & LADEN (localStorage)
+   ========================================================= */
+const SAVE_KEY = 'wildlands_voxel_save_v6';
+
+function saveGame(silent = false) {
+  try {
+    const payload = {
+      player: { x: player.x, y: player.y, z: player.z, hp: player.hp, hunger: player.hunger, warmth: player.warmth, flying: player.flying, hasteTimer: player.hasteTimer },
+      yaw,
+      pitch,
+      state,
+      hotbar: HOTBAR_ITEMS,
+      isRaining,
+      deltas: Array.from(worldDeltas.entries())
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    const nowStr = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.querySelector('#saveStatus').textContent = `Gespeichert um ${nowStr}`;
+    if (!silent) showMessage('💾 Spielstand erfolgreich gespeichert!');
+  } catch (_) {
+    if (!silent) showMessage('Speichern fehlgeschlagen');
+  }
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+
+    for (const ck of [...loadedChunks.keys()]) unloadChunk(ck);
+    worldDeltas.clear();
+    if (Array.isArray(data.deltas)) {
+      data.deltas.forEach(([k, v]) => worldDeltas.set(k, v));
+    }
+
+    if (data.player) {
+      Object.assign(player, data.player);
+      player.vy = 0;
+      player.dead = false;
+      player.flying = !!data.player.flying;
+      player.hasteTimer = data.player.hasteTimer || 0;
+    }
+    if (typeof data.yaw === 'number') yaw = data.yaw;
+    if (typeof data.pitch === 'number') pitch = data.pitch;
+    if (typeof data.isRaining === 'boolean') isRaining = data.isRaining;
+
+    if (Array.isArray(data.hotbar) && data.hotbar.length === 9) {
+      for (let i = 0; i < 9; i++) {
+        if (ITEM_META[data.hotbar[i]]) HOTBAR_ITEMS[i] = data.hotbar[i];
+      }
+    }
+
+    if (data.state) {
+      state.creativeMode = !!data.state.creativeMode;
+      Object.assign(state.inv, data.state.inv || {});
+      Object.assign(state.tools, data.state.tools || {});
+      Object.assign(state.stats, data.state.stats || {});
+      state.questIndex = data.state.questIndex || 0;
+      state.worldTime = data.state.worldTime || 0.4;
+    }
+
+    syncFlyUI();
+    applyCreativeModeUI();
+    updateChunks(true);
+    refreshInventoryUI();
+    refreshVitalsUI(true);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+if (localStorage.getItem(SAVE_KEY)) {
+  document.querySelector('#loadStartBtn').style.display = 'inline-block';
+}
+
+/* =========================================================
+   8. ECHTE 3D-AABB-KOLLISION & DACH-ERKENNUNG
+   ========================================================= */
+function isSolidAt(bx, by, bz) {
+  const b = blocks.get(key(bx, by, bz));
+  if (!b) return false;
+  if (DOOR_TYPES.has(b.userData.type) && b.userData.isOpen) return false;
+  return !NON_SOLID.has(b.userData.type);
+}
+
+function collidesAt(px, py, pz) {
+  const r = player.radius;
+  const minX = Math.floor(px - r + 0.5);
+  const maxX = Math.floor(px + r + 0.5);
+  const minY = Math.floor(py + 0.5 + 0.001);
+  const maxY = Math.floor(py + player.height + 0.5 - 0.001);
+  const minZ = Math.floor(pz - r + 0.5);
+  const maxZ = Math.floor(pz + r + 0.5);
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        if (isSolidAt(x, y, z)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function moveAndCollide(dx, dy, dz) {
+  const nextX = player.x + dx;
+  if (!collidesAt(nextX, player.y, player.z)) {
+    player.x = nextX;
+  } else if (!player.flying && player.onGround && !collidesAt(nextX, player.y + 1.02, player.z) && !collidesAt(player.x, player.y + 1.02, player.z)) {
+    player.x = nextX;
+    player.y += 1.01;
+  }
+
+  const nextZ = player.z + dz;
+  if (!collidesAt(player.x, player.y, nextZ)) {
+    player.z = nextZ;
+  } else if (!player.flying && player.onGround && !collidesAt(player.x, player.y + 1.02, nextZ) && !collidesAt(player.x, player.y + 1.02, player.z)) {
+    player.z = nextZ;
+    player.y += 1.01;
+  }
+
+  player.onGround = false;
+  const nextY = player.y + dy;
+  if (!collidesAt(player.x, nextY, player.z)) {
+    player.y = nextY;
+  } else {
+    if (dy < 0) {
+      player.y = Math.floor(nextY + 0.5) + 0.5;
+      player.onGround = true;
+    }
+    player.vy = 0;
+  }
+
+  if (player.y < -6) {
+    player.y = heightAt(Math.round(player.x), Math.round(player.z)) + 2.5;
+    player.vy = 0;
+  }
+}
+
+function checkShelterAbove() {
+  const bx = Math.round(player.x);
+  const bz = Math.round(player.z);
+  const startY = Math.floor(player.y + player.height + 0.8);
+  for (let y = startY; y <= startY + 7; y++) {
+    if (isSolidAt(bx, y, bz)) {
+      state.stats.builtRoof = true;
+      return true;
+    }
+  }
+  return false;
+}
+
+/* =========================================================
+   9. NACHT-GEGNER (VOXEL-SCHATTENWESEN)
+   ========================================================= */
+const enemies = [];
+const enemyGroup = new THREE.Group();
+scene.add(enemyGroup);
+
+const enemyBodyMat = new THREE.MeshStandardMaterial({ color: 0x1b1624, roughness: 0.7 });
+const enemyEyeMat = new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff2a1f, emissiveIntensity: 1.8 });
+
+function createEnemyMesh() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.85, 0.85), enemyBodyMat);
+  body.position.y = 0.425;
+  body.castShadow = true;
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.08), enemyEyeMat);
+  eyeL.position.set(-0.2, 0.52, 0.43);
+  const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.08), enemyEyeMat);
+  eyeR.position.set(0.2, 0.52, 0.43);
+  g.add(body, eyeL, eyeR);
+  return g;
+}
+
+function clearAllEnemies() {
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    spawnBreakParticles(enemies[i].x, enemies[i].y + 0.5, enemies[i].z, 0x3b2d54);
+    enemyGroup.remove(enemies[i].mesh);
+    enemies.splice(i, 1);
+  }
+}
+
+function spawnEnemy() {
+  if (state.creativeMode || enemies.length >= 5) return;
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 14 + Math.random() * 14;
+  const ex = player.x + Math.cos(angle) * dist;
+  const ez = player.z + Math.sin(angle) * dist;
+
+  for (const hs of heatSources.values()) {
+    if (Math.hypot(ex - hs.x, ez - hs.z) < hs.radius + 3) return;
+  }
+
+  const ey = heightAt(Math.round(ex), Math.round(ez)) + 0.55;
+  const mesh = createEnemyMesh();
+  mesh.position.set(ex, ey, ez);
+  enemyGroup.add(mesh);
+  enemies.push({ mesh, x: ex, y: ey, z: ez, hp: 30, hitCooldown: 0, bob: Math.random() * 6 });
+}
+
+function updateEnemies(dt, isNight) {
+  if (state.creativeMode || !isNight) {
+    clearAllEnemies();
+    return;
+  }
+
+  if (Math.random() < dt * 0.22) spawnEnemy();
+
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    e.bob += dt * 6;
+    e.hitCooldown = Math.max(0, e.hitCooldown - dt);
+
+    let repelX = 0;
+    let repelZ = 0;
+    heatSources.forEach(hs => {
+      const d = Math.hypot(e.x - hs.x, e.z - hs.z);
+      if (d < hs.radius + 1.8 && d > 0.01) {
+        repelX += ((e.x - hs.x) / d) * 3.8;
+        repelZ += ((e.z - hs.z) / d) * 3.8;
+      }
+    });
+
+    const dx = player.x - e.x;
+    const dz = player.z - e.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist > 42) {
+      enemyGroup.remove(e.mesh);
+      enemies.splice(i, 1);
+      continue;
+    }
+
+    let vx = repelX;
+    let vz = repelZ;
+    if (dist > 1.1 && repelX === 0 && repelZ === 0) {
+      vx += (dx / dist) * 2.55;
+      vz += (dz / dist) * 2.55;
+    }
+
+    e.x += vx * dt;
+    e.z += vz * dt;
+    const targetGround = heightAt(Math.round(e.x), Math.round(e.z)) + 0.52;
+    e.y += (targetGround - e.y) * Math.min(1, dt * 8);
+
+    e.mesh.position.set(e.x, e.y + Math.abs(Math.sin(e.bob)) * 0.14, e.z);
+    e.mesh.lookAt(player.x, e.y + 0.4, player.z);
+
+    if (dist < 1.35 && e.hitCooldown <= 0 && !state.creativeMode) {
+      e.hitCooldown = 1.25;
+      player.hp = Math.max(0, player.hp - 12);
+      sfx.hurt();
+      const flash = document.querySelector('#hurtFlash');
+      flash.style.opacity = 1;
+      setTimeout(() => { flash.style.opacity = 0; }, 220);
+      showMessage('⚠️ Ein Schattenwesen hat dich angegriffen!');
+    }
+  }
+}
+
+/* =========================================================
+   10. ABBAU (MEHRSCHLAG), KAMPF, BAUEN, TÜREN & CRAFTING
+   ========================================================= */
+const raycaster = new THREE.Raycaster();
+const centerNDC = new THREE.Vector2(0, 0);
+const crossEl = document.querySelector('#cross');
+const targetLabelEl = document.querySelector('#targetLabel');
+const mineBarWrap = document.querySelector('#mineBarWrap');
+const mineBar = document.querySelector('#mineBar');
+
+let isHoldingMine = false;
+let currentMineKey = null;
+let mineProgress = 0;
+let hitSoundTimer = 0;
+
+function getTarget() {
+  raycaster.setFromCamera(centerNDC, camera);
+  const enemyHits = raycaster.intersectObjects(enemyGroup.children, true);
+  const eHit = enemyHits.find(h => h.distance <= 4.2);
+  if (eHit) {
+    let root = eHit.object;
+    while (root.parent && root.parent !== enemyGroup) root = root.parent;
+    const enemyObj = enemies.find(en => en.mesh === root);
+    if (enemyObj) return { kind: 'enemy', enemy: enemyObj, distance: eHit.distance };
+  }
+
+  const blockHits = raycaster.intersectObjects(worldGroup.children, false);
+  const bHit = blockHits.find(h => h.distance <= 5.5);
+  if (bHit) return { kind: 'block', hit: bHit, distance: bHit.distance };
+  return null;
+}
+
+function attackEnemy(enemy) {
+  const sel = HOTBAR_ITEMS[selected];
+  const hasEmeraldSword = state.creativeMode || state.tools.emeraldSword || sel === 'tool_emeraldSword';
+  const hasDiamondSword = state.creativeMode || state.tools.diamondSword || sel === 'tool_diamondSword';
+  const hasSword = state.creativeMode || state.tools.sword || sel === 'tool_sword';
+  const hasIronPick = state.creativeMode || state.tools.ironPick;
+  const dmg = hasEmeraldSword ? 50 : hasDiamondSword ? 35 : hasSword ? 20 : (hasIronPick ? 14 : 9);
+  enemy.hp -= dmg;
+
+  const dx = enemy.x - player.x;
+  const dz = enemy.z - player.z;
+  const d = Math.max(0.1, Math.hypot(dx, dz));
+  enemy.x += (dx / d) * 1.4;
+  enemy.z += (dz / d) * 1.4;
+
+  sfx.enemyHit();
+  spawnBreakParticles(enemy.x, enemy.y + 0.5, enemy.z, 0x8b2635);
+
+  if (enemy.hp <= 0) {
+    const idx = enemies.indexOf(enemy);
+    if (idx !== -1) {
+      enemyGroup.remove(enemy.mesh);
+      enemies.splice(idx, 1);
+    }
+    state.stats.defeatedEnemies++;
+    addItem('coal', 1);
+    if (Math.random() < 0.45) addItem('gunpowder', 1);
+    if (Math.random() < 0.65) addItem('apple', 1);
+    refreshInventoryUI();
+    showMessage('⚔️ Schattenwesen besiegt!');
+  } else {
+    showMessage(`Treffer! (-${dmg} HP)`);
+  }
+}
+
+function getMiningSpeed(blockType) {
+  const sel = HOTBAR_ITEMS[selected];
+  const hasteMult = player.hasteTimer > 0 ? 1.85 : 1.0;
+  if (state.creativeMode) return 6.5;
+  if (state.tools.emeraldPick || sel === 'tool_emeraldPick') return 5.2 * hasteMult;
+  if (state.tools.diamondPick || sel === 'tool_diamondPick') return 3.6 * hasteMult;
+  const hardBlocks = ['stone', 'cobble', 'stone_brick', 'mossy_brick', 'brick', 'coal_ore', 'iron_ore', 'copper_ore', 'gold_ore', 'diamond_ore', 'emerald_ore', 'obsidian', 'furnace', 'gold_block', 'diamond_block', 'emerald_block', 'copper_block', 'iron_door', 'anvil'];
+  if (hardBlocks.includes(blockType) && !state.tools.stonePick && !state.tools.ironPick) {
+    return 0.28 * hasteMult;
+  }
+  if (state.tools.ironPick || sel === 'tool_ironPick') return 2.35 * hasteMult;
+  if (state.tools.stonePick || sel === 'tool_stonePick') return 1.55 * hasteMult;
+  return 1.0 * hasteMult;
+}
+
+function completeBlockBreak(mesh) {
+  const { x, y, z, type } = mesh.userData;
+  const mult = state.tools.emeraldPick ? 4 : state.tools.diamondPick ? 3 : state.tools.ironPick ? 2 : 1;
+  let toast = '';
+
+  if (type === 'leaves') {
+    const r = Math.random();
+    if (r < 0.36) { addItem('apple', 1); toast = '🍎 Apfel gefunden!'; }
+    else if (r < 0.56) { addItem('wood', 1); toast = '🪵 +1 Holz'; }
+    else if (r < 0.72) { addItem('feather', 1); toast = '🪶 +1 Feder'; }
+    else { addItem('leaves', 1); toast = '🌿 +1 Laubblock'; }
+  } else if (type === 'coal_ore') {
+    addItem('coal', mult);
+    toast = `⚫ +${mult} Kohle`;
+  } else if (type === 'iron_ore') {
+    addItem('iron_ore', mult);
+    toast = `🟤 +${mult} Eisenerz`;
+  } else if (type === 'copper_ore') {
+    addItem('copper_ore', mult);
+    toast = `🟠 +${mult} Kupfererz`;
+  } else if (type === 'gold_ore') {
+    addItem('gold_ore', mult);
+    toast = `🟡 +${mult} Golderz`;
+  } else if (type === 'diamond_ore') {
+    addItem('diamond', mult);
+    toast = `💎 +${mult} Diamant!`;
+  } else if (type === 'emerald_ore') {
+    addItem('emerald', mult);
+    toast = `💚 +${mult} Smaragd!`;
+  } else if (type === 'grass') {
+    addItem('dirt', 1);
+    toast = '🟫 +1 Erde';
+  } else if (type === 'sand' && Math.random() < 0.25) {
+    addItem('sand', 1);
+    addItem('flint', 1);
+    toast = '🟨 Sand & 🪨 Feuerstein!';
+  } else if (ITEM_META[type]) {
+    addItem(type, 1);
+    toast = `${ITEM_META[type].icon} +1 ${ITEM_META[type].label}`;
+  }
+
+  spawnBreakParticles(x, y, z, PARTICLE_COLORS[type]);
+  setWorldBlock(x, y, z, null);
+  sfx.break();
+  refreshInventoryUI();
+  if (toast && !state.creativeMode) showMessage(toast);
+}
+
+function updateMiningAndTarget(dt) {
+  if (!gameStarted || invOpen || player.dead) {
+    highlightMesh.visible = false;
+    crackMesh.visible = false;
+    targetLabelEl.style.opacity = 0;
+    mineBarWrap.style.opacity = 0;
+    crossEl.className = '';
+    return;
+  }
+
+  const target = getTarget();
+  if (!target) {
+    highlightMesh.visible = false;
+    crackMesh.visible = false;
+    targetLabelEl.style.opacity = 0;
+    mineBarWrap.style.opacity = 0;
+    crossEl.className = '';
+    currentMineKey = null;
+    mineProgress = 0;
+    return;
+  }
+
+  if (target.kind === 'enemy') {
+    highlightMesh.visible = false;
+    crackMesh.visible = false;
+    mineBarWrap.style.opacity = 0;
+    crossEl.className = 'enemy';
+    targetLabelEl.textContent = `👾 Schattenwesen (${target.enemy.hp} HP)`;
+    targetLabelEl.style.opacity = 1;
+    return;
+  }
+
+  const mesh = target.hit.object;
+  const { x, y, z, type, isOpen } = mesh.userData;
+  const bKey = key(x, y, z);
+
+  highlightMesh.position.set(x, y, z);
+  highlightMesh.visible = true;
+  crossEl.className = 'active';
+  const doorStateText = DOOR_TYPES.has(type) ? (isOpen ? ' [Offen]' : ' [Geschlossen]') : '';
+  targetLabelEl.textContent = (BLOCK_INFO[type]?.name || type) + doorStateText;
+  targetLabelEl.style.opacity = 1;
+
+  if (isHoldingMine) {
+    if (currentMineKey !== bKey) {
+      currentMineKey = bKey;
+      mineProgress = 0;
+    }
+    const hardness = BLOCK_INFO[type]?.hard || 0.8;
+    const speed = getMiningSpeed(type);
+    mineProgress += (dt * speed) / hardness;
+    hitSoundTimer -= dt;
+    if (hitSoundTimer <= 0) {
+      sfx.hit();
+      hitSoundTimer = 0.22;
+    }
+
+    const ratio = Math.min(1, mineProgress);
+    mineBarWrap.style.opacity = 1;
+    mineBar.style.width = `${ratio * 100}%`;
+    crackMesh.position.set(x, y, z);
+    crackMesh.visible = true;
+    crackMat.opacity = ratio * 0.75;
+
+    if (mineProgress >= 1) {
+      completeBlockBreak(mesh);
+      currentMineKey = null;
+      mineProgress = 0;
+      crackMesh.visible = false;
+      mineBarWrap.style.opacity = 0;
+    }
+  } else {
+    currentMineKey = null;
+    mineProgress = 0;
+    crackMesh.visible = false;
+    mineBarWrap.style.opacity = 0;
+  }
+}
+
+function consumeFoodOrPotion(id) {
+  const f = FOOD_STATS[id];
+  if (!f) return false;
+  if (!state.creativeMode) {
+    if ((state.inv[id] || 0) <= 0) return false;
+    state.inv[id]--;
+    player.hunger = Math.min(100, player.hunger + f.hunger);
+    player.hp = Math.min(100, player.hp + f.hp);
+  }
+  if (f.hasteSec) {
+    player.hasteTimer = Math.max(player.hasteTimer, f.hasteSec);
+  }
+  sfx.eat();
+  refreshInventoryUI();
+  refreshVitalsUI(true);
+  showMessage(
+    f.hasteSec
+      ? `⚡ ${f.name} getrunken! Schnellerer Abbau für ${f.hasteSec}s`
+      : `${ITEM_META[id].icon} ${f.name} ${state.creativeMode ? 'gekostet (∞)' : `gegessen (+${f.hunger} Hunger, +${f.hp} HP)`}`
+  );
+  return true;
+}
+
+function eatBestFood() {
+  const foodIds = Object.keys(FOOD_STATS);
+
+  if (state.creativeMode) {
+    const selItem = HOTBAR_ITEMS[selected];
+    const chosenId = FOOD_STATS[selItem] ? selItem : 'golden_apple';
+    return consumeFoodOrPotion(chosenId);
+  }
+
+  const selItem = HOTBAR_ITEMS[selected];
+  if (FOOD_STATS[selItem] && (state.inv[selItem] || 0) > 0) {
+    return consumeFoodOrPotion(selItem);
+  }
+
+  if (player.hunger >= 99 && player.hp >= 99) {
+    showMessage('Du bist bereits satt und unverletzt');
+    return false;
+  }
+
+  for (const id of foodIds) {
+    if ((state.inv[id] || 0) > 0) {
+      return consumeFoodOrPotion(id);
+    }
+  }
+
+  showMessage('Keine Nahrung vorhanden – sammle Äpfel oder Pilze!');
+  return false;
+}
+
+function buildOrInteract() {
+  const target = getTarget();
+
+  if (target && target.kind === 'block') {
+    const tType = target.hit.object.userData.type;
+    if (DOOR_TYPES.has(tType)) { toggleDoorBlock(target.hit.object); return; }
+    if (tType === 'furnace') { toggleInventory(true, 'smelt'); return; }
+    if (tType === 'workbench') { toggleInventory(true, 'craft'); return; }
+    if (tType === 'chest' || tType === 'wardrobe' || tType === 'barrel') { toggleInventory(true, 'items'); return; }
+    if (tType === 'bed_red' || tType === 'bed_blue') {
+      player.hp = 100;
+      player.warmth = 100;
+      refreshVitalsUI(true);
+      showMessage('🛏️ Du hast dich im Bett ausgeruht (+100 HP & Wärme)');
+      return;
+    }
+  }
+
+  const sel = HOTBAR_ITEMS[selected];
+  if (FOOD_STATS[sel]) {
+    eatBestFood();
+    return;
+  }
+
+  if (!PLACEABLE_ITEMS.has(sel)) {
+    showMessage(`${ITEM_META[sel].label} kann nicht als Block platziert werden`);
+    return;
+  }
+
+  if (!target || target.kind !== 'block') return;
+  if (!hasItem(sel, 1)) {
+    showMessage(`Kein ${ITEM_META[sel].label} im Inventar`);
+    return;
+  }
+
+  const normal = target.hit.face.normal.clone().transformDirection(target.hit.object.matrixWorld);
+  const bx = Math.round(target.hit.object.userData.x + normal.x);
+  const by = Math.round(target.hit.object.userData.y + normal.y);
+  const bz = Math.round(target.hit.object.userData.z + normal.z);
+
+  if (blocks.has(key(bx, by, bz))) return;
+
+  if (!NON_SOLID.has(sel)) {
+    const overlapX = Math.abs(bx - player.x) < player.radius + 0.48;
+    const overlapZ = Math.abs(bz - player.z) < player.radius + 0.48;
+    const overlapY = (by + 0.5 > player.y + 0.05) && (by - 0.5 < player.y + player.height - 0.05);
+    if (overlapX && overlapZ && overlapY) {
+      showMessage('Zu nah am Block');
+      return;
+    }
+  }
+
+  setWorldBlock(bx, by, bz, sel);
+  consumeItem(sel, 1);
+  if (LIGHT_BLOCKS.has(sel)) state.stats.placedLight = true;
+  sfx.build();
+  refreshInventoryUI();
+}
+
+/* =========================================================
+   11. MINECRAFT-INVENTAR, CRAFTING, OFEN & EVENT-HANDLER
+   ========================================================= */
+function toggleInventory(forceState, tabName) {
+  if (!gameStarted || player.dead) return;
+  invOpen = typeof forceState === 'boolean' ? forceState : !invOpen;
+  document.querySelector('#inventory').style.display = invOpen ? 'block' : 'none';
+  if (invOpen) {
+    if (tabName) switchInvTab(tabName);
+    refreshInventoryUI();
+    if (locked) document.exitPointerLock();
+  }
+}
+
+function switchInvTab(tab) {
+  document.querySelectorAll('.tabBtn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelector('#tab-items').style.display = tab === 'items' ? 'block' : 'none';
+  document.querySelector('#tab-craft').style.display = tab === 'craft' ? 'grid' : 'none';
+  document.querySelector('#tab-smelt').style.display = tab === 'smelt' ? 'grid' : 'none';
+}
+
+document.querySelectorAll('.tabBtn').forEach(b => {
+  b.onclick = () => switchInvTab(b.dataset.tab);
+});
+
+let activeInvFilter = 'all';
+let invSearchQuery = '';
+
+const invSearchInput = document.querySelector('#invSearch');
+if (invSearchInput) {
+  invSearchInput.addEventListener('input', e => {
+    invSearchQuery = e.target.value.trim().toLowerCase();
+    renderExpandedInventoryUI();
+  });
+}
+
+const stationJob = {
+  active: false,
+  recipeId: null,
+  label: '',
+  outputItem: null,
+  outputCount: 1,
+  elapsed: 0,
+  duration: 3.0,
+  refund: null
+};
+
+const COOK_RECIPES = {
+  smeltIron: {
+    label: 'Eisenbarren schmelzen',
+    duration: 4.5,
+    outputItem: 'iron',
+    outputCount: 1,
+    checkAndTake(inv) {
+      if (state.creativeMode) return { refund: null };
+      if (inv.iron_ore < 1) return 'Benötigt: 1× Eisenerz';
+      if (inv.coal >= 1) { inv.iron_ore -= 1; inv.coal -= 1; return { refund: { iron_ore: 1, coal: 1 } }; }
+      if (inv.wood >= 2) { inv.iron_ore -= 1; inv.wood -= 2; return { refund: { iron_ore: 1, wood: 2 } }; }
+      return 'Benötigt Brennstoff: 1× Kohle oder 2× Holz';
+    }
+  },
+  cookMushroom: {
+    label: 'Gebratener Pilz',
+    duration: 3.0,
+    outputItem: 'cooked_mushroom',
+    outputCount: 1,
+    checkAndTake(inv) {
+      if (state.creativeMode) return { refund: null };
+      if (inv.mushroom < 1) return 'Benötigt: 1× Waldpilz';
+      if (inv.coal >= 1) { inv.mushroom -= 1; inv.coal -= 1; return { refund: { mushroom: 1, coal: 1 } }; }
+      if (inv.wood >= 1) { inv.mushroom -= 1; inv.wood -= 1; return { refund: { mushroom: 1, wood: 1 } }; }
+      return 'Benötigt: 1× Holz oder Kohle';
+    }
+  },
+  cookApple: {
+    label: 'Bratapfel',
+    duration: 3.0,
+    outputItem: 'cooked_apple',
+    outputCount: 1,
+    checkAndTake(inv) {
+      if (state.creativeMode) return { refund: null };
+      if (inv.apple < 1) return 'Benötigt: 1× Apfel';
+      if (inv.wood >= 1) { inv.apple -= 1; inv.wood -= 1; return { refund: { apple: 1, wood: 1 } }; }
+      if (inv.coal >= 1) { inv.apple -= 1; inv.coal -= 1; return { refund: { apple: 1, coal: 1 } }; }
+      return 'Benötigt: 1× Holz oder Kohle';
+    }
+  },
+  charcoal: {
+    label: 'Holzkohle brennen',
+    duration: 3.5,
+    outputItem: 'coal',
+    outputCount: 2,
+    checkAndTake(inv) {
+      if (state.creativeMode) return { refund: null };
+      if (inv.wood < 2) return 'Benötigt: 2× Holz';
+      inv.wood -= 2;
+      return { refund: { wood: 2 } };
+    }
+  }
+};
+
+function equipItemToHotbar(itemId) {
+  const existingIdx = HOTBAR_ITEMS.indexOf(itemId);
+  if (existingIdx !== -1) {
+    selectSlot(existingIdx);
+    showMessage(`${ITEM_META[itemId].icon} ${ITEM_META[itemId].label} auf Slot ${existingIdx + 1} gewählt`);
+    refreshInventoryUI();
+    return;
+  }
+  HOTBAR_ITEMS[selected] = itemId;
+  refreshInventoryUI();
+  showMessage(`${ITEM_META[itemId].icon} ${ITEM_META[itemId].label} auf Hotbar-Slot ${selected + 1} gelegt`);
+}
+
+function renderModalHotbar() {
+  const mBar = document.querySelector('#modalHotbar');
+  if (!mBar) return;
+  mBar.innerHTML = HOTBAR_ITEMS.map((it, idx) => `
+    <div class="mSlot ${idx === selected ? 'active' : ''}" data-mslot="${idx}" title="${ITEM_META[it].label}">
+      <span class="key">${idx + 1}</span>
+      ${ITEM_META[it].icon}
+      <small>${formatItemCount(it)}</small>
+    </div>
+  `).join('');
+
+  mBar.querySelectorAll('[data-mslot]').forEach(el => {
+    el.onclick = () => selectSlot(Number(el.dataset.mslot));
+  });
+}
+
+function startStationRecipe(recipeId) {
+  const rec = COOK_RECIPES[recipeId];
+  if (!rec) return;
+  if (stationJob.active) return showMessage('Ofen / Küche ist bereits mit einem Vorgang beschäftigt');
+  const res = rec.checkAndTake(state.inv);
+  if (typeof res === 'string') return showMessage(res);
+
+  stationJob.active = true;
+  stationJob.recipeId = recipeId;
+  stationJob.label = rec.label;
+  stationJob.outputItem = rec.outputItem;
+  stationJob.outputCount = rec.outputCount;
+  stationJob.elapsed = 0;
+  stationJob.duration = state.creativeMode ? 0.8 : rec.duration;
+  stationJob.refund = res.refund || null;
+
+  sfx.craft();
+  showMessage(`🔥 ${rec.label} gestartet...`);
+  refreshInventoryUI();
+}
+
+function cancelStationJob() {
+  if (!stationJob.active) return;
+  if (stationJob.refund && !state.creativeMode) {
+    Object.entries(stationJob.refund).forEach(([k, v]) => { state.inv[k] = (state.inv[k] || 0) + v; });
+  }
+  stationJob.active = false;
+  stationJob.recipeId = null;
+  stationJob.elapsed = 0;
+  showMessage('Vorgang abgebrochen – Zutaten zurückgelegt');
+  refreshInventoryUI();
+}
+
+function updateStationJob(dt) {
+  if (!stationJob.active) return;
+  stationJob.elapsed += dt;
+  const ratio = Math.min(1, stationJob.elapsed / stationJob.duration);
+  const bar = document.querySelector('#cookProgressBar');
+  if (bar) bar.style.width = `${ratio * 100}%`;
+
+  const sub = document.querySelector('#stationStatusSub');
+  if (sub && invOpen) {
+    const left = Math.max(0, stationJob.duration - stationJob.elapsed).toFixed(1);
+    sub.textContent = `Läuft: ${stationJob.label} · Noch ${left}s`;
+  }
+
+  if (stationJob.elapsed >= stationJob.duration) {
+    const outId = stationJob.outputItem;
+    const outCnt = stationJob.outputCount;
+    const label = stationJob.label;
+    addItem(outId, outCnt);
+    if (outId === 'iron') state.stats.smeltedIron = true;
+
+    stationJob.active = false;
+    stationJob.recipeId = null;
+    stationJob.elapsed = 0;
+    if (bar) bar.style.width = '0%';
+
+    sfx.quest();
+    showMessage(`✅ ${label} fertig! (${state.creativeMode ? '∞' : '+' + outCnt + '×'} ${ITEM_META[outId].label})`);
+    refreshInventoryUI();
+  }
+}
+
+function refreshStationUI() {
+  const banner = document.querySelector('#stationBanner');
+  const titleEl = document.querySelector('#stationStatusTitle');
+  const subEl = document.querySelector('#stationStatusSub');
+  const barEl = document.querySelector('#cookProgressBar');
+  const cancelBtn = document.querySelector('#cancelCookBtn');
+  if (!banner || !titleEl || !subEl || !barEl || !cancelBtn) return;
+
+  if (stationJob.active) {
+    banner.classList.add('active');
+    const left = Math.max(0, stationJob.duration - stationJob.elapsed).toFixed(1);
+    titleEl.textContent = `🔥 In Arbeit: ${stationJob.label}`;
+    subEl.textContent = `Fertigstellung in ${left}s – du kannst weiterspielen oder das Inventar schließen.`;
+    barEl.style.width = `${Math.min(100, (stationJob.elapsed / stationJob.duration) * 100)}%`;
+    cancelBtn.style.display = 'inline-block';
+  } else {
+    banner.classList.remove('active');
+    titleEl.textContent = '🔥 Ofen & Küche bereit';
+    subEl.textContent = 'Wähle ein Rezept zum Schmelzen, Brennen oder Kochen – läuft automatisch durch.';
+    barEl.style.width = '0%';
+    cancelBtn.style.display = 'none';
+  }
+
+  const inv = state.inv;
+  const fuelOk = state.creativeMode || inv.coal >= 1 || inv.wood >= 1;
+  const ironFuelOk = state.creativeMode || inv.coal >= 1 || inv.wood >= 2;
+  const bIron = document.querySelector('#avail-smeltIron');
+  const bMush = document.querySelector('#avail-cookMushroom');
+  const bApp = document.querySelector('#avail-cookApple');
+  const bChar = document.querySelector('#avail-charcoal');
+
+  if (bIron) bIron.textContent = `Eisen: ${(state.creativeMode || (inv.iron_ore >= 1 && ironFuelOk)) ? '✓ Bereit' : 'Fehlt'}`;
+  if (bMush) bMush.textContent = `Pilz: ${(state.creativeMode || (inv.mushroom >= 1 && fuelOk)) ? '✓ Bereit' : 'Fehlt'}`;
+  if (bApp) bApp.textContent = `Apfel: ${(state.creativeMode || (inv.apple >= 1 && fuelOk)) ? '✓ Bereit' : 'Fehlt'}`;
+  if (bChar) bChar.textContent = `Kohle: ${(state.creativeMode || inv.wood >= 2) ? '✓ Bereit' : '2× Holz nötig'}`;
+
+  document.querySelectorAll('[data-cook]').forEach(btn => {
+    btn.disabled = stationJob.active;
+  });
+}
+
+function renderExpandedInventoryUI() {
+  renderModalHotbar();
+
+  const ownedCount = state.creativeMode
+    ? ALL_ITEMS.length
+    : ALL_ITEMS.filter(it => hasItem(it, 1)).length;
+  const sumEl = document.querySelector('#invSummary');
+  if (sumEl) {
+    sumEl.textContent = state.creativeMode
+      ? `Kreativ: Alle ${ALL_ITEMS.length} Items unendlich (∞)`
+      : `Freigeschaltet: ${ownedCount}/${ALL_ITEMS.length}`;
+  }
+
+  const visibleItems = ALL_ITEMS.filter(it => {
+    const meta = ITEM_META[it];
+    if (activeInvFilter !== 'all' && meta.cat !== activeInvFilter) return false;
+    if (invSearchQuery && !meta.label.toLowerCase().includes(invSearchQuery) && !meta.catLabel.toLowerCase().includes(invSearchQuery)) {
+      return false;
+    }
+    return true;
+  });
+
+  document.querySelector('#invgrid').innerHTML = visibleItems.map(it => {
+    const meta = ITEM_META[it];
+    const inHb = HOTBAR_ITEMS.includes(it);
+    const hasAny = hasItem(it, 1);
+    const isFood = meta.cat === 'food' && hasAny;
+    const cntDisplay = isToolItem(it)
+      ? (hasAny ? '✓ Aktiv' : '0×')
+      : `${formatItemCount(it)}${state.creativeMode ? '' : '×'}`;
+    return `
+      <div class="invitem ${hasAny ? 'hasItem' : ''} ${inHb ? 'inHotbar' : ''}" data-card-item="${it}">
+        <div class="icat">${meta.catLabel}</div>
+        <div class="ico">${meta.icon}</div>
+        <div class="iname" title="${meta.label}">${meta.label}</div>
+        <div class="icnt">${cntDisplay}</div>
+        <div class="iacts">
+          <button class="invMiniBtn" data-equip="${it}">Slot ${selected + 1}</button>
+          ${isFood ? `<button class="invMiniBtn" data-eat-item="${it}">Nutzen</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('[data-card-item]').forEach(card => {
+    card.onclick = e => {
+      if (e.target.closest('button')) return;
+      equipItemToHotbar(card.dataset.cardItem);
+    };
+  });
+
+  document.querySelectorAll('[data-equip]').forEach(btn => {
+    btn.onclick = () => equipItemToHotbar(btn.dataset.equip);
+  });
+
+  document.querySelectorAll('[data-eat-item]').forEach(btn => {
+    btn.onclick = () => consumeFoodOrPotion(btn.dataset.eatItem);
+  });
+
+  refreshStationUI();
+}
+
+document.querySelectorAll('.fltBtn').forEach(btn => {
+  btn.onclick = () => {
+    activeInvFilter = btn.dataset.filter;
+    document.querySelectorAll('.fltBtn').forEach(b => b.classList.toggle('active', b === btn));
+    refreshInventoryUI();
+  };
+});
+
+document.querySelectorAll('[data-cook]').forEach(btn => {
+  btn.onclick = () => startStationRecipe(btn.dataset.cook);
+});
+
+const cancelCookBtn = document.querySelector('#cancelCookBtn');
+if (cancelCookBtn) cancelCookBtn.onclick = () => cancelStationJob();
+
+document.querySelectorAll('[data-craft]').forEach(btn => {
+  btn.onclick = () => {
+    const id = btn.dataset.craft;
+    const inv = state.inv;
+    const cr = state.creativeMode;
+
+    if (id === 'wood_door') {
+      if (!cr && inv.plank < 4) return showMessage('Benötigt: 4× Holzbretter');
+      if (!cr) { inv.plank -= 4; inv.wood_door += 2; }
+      showMessage('🚪 2× Holztür hergestellt');
+    } else if (id === 'oak_door') {
+      if (!cr && inv.wood < 4) return showMessage('Benötigt: 4× Holzstamm');
+      if (!cr) { inv.wood -= 4; inv.oak_door += 2; }
+      showMessage('🚪 2× Edle Eichentür hergestellt');
+    } else if (id === 'iron_door') {
+      if (!cr && inv.iron < 4) return showMessage('Benötigt: 4× Eisenbarren');
+      if (!cr) { inv.iron -= 4; inv.iron_door += 2; }
+      showMessage('🛡️ 2× Eisentür hergestellt');
+    } else if (id === 'trapdoor') {
+      if (!cr && inv.plank < 3) return showMessage('Benötigt: 3× Holzbretter');
+      if (!cr) { inv.plank -= 3; inv.trapdoor += 2; }
+      showMessage('🪵 2× Falltür hergestellt');
+    } else if (id === 'fence_gate') {
+      if (!cr && (inv.plank < 2 || inv.wood < 2)) return showMessage('Benötigt: 2× Holzbretter & 2× Holz');
+      if (!cr) { inv.plank -= 2; inv.wood -= 2; inv.fence_gate += 2; }
+      showMessage('🚧 2× Gartentor hergestellt');
+    } else if (id === 'chair') {
+      if (!cr && inv.plank < 3) return showMessage('Benötigt: 3× Holzbretter');
+      if (!cr) { inv.plank -= 3; inv.chair += 2; }
+      showMessage('🪑 2× Holzstuhl hergestellt');
+    } else if (id === 'table') {
+      if (!cr && inv.plank < 4) return showMessage('Benötigt: 4× Holzbretter');
+      if (!cr) { inv.plank -= 4; inv.table++; }
+      showMessage('🪵 Holztisch hergestellt');
+    } else if (id === 'sofa') {
+      if (!cr && (inv.wool_red < 3 || inv.plank < 2)) return showMessage('Benötigt: 3× Rote Wolle & 2× Holzbretter');
+      if (!cr) { inv.wool_red -= 3; inv.plank -= 2; inv.sofa++; }
+      showMessage('🛋️ Rotes Sofa hergestellt');
+    } else if (id === 'bed_red') {
+      if (!cr && (inv.wool_red < 3 || inv.plank < 3)) return showMessage('Benötigt: 3× Rote Wolle & 3× Holzbretter');
+      if (!cr) { inv.wool_red -= 3; inv.plank -= 3; inv.bed_red++; }
+      showMessage('🛏️ Rotes Bett hergestellt');
+    } else if (id === 'bed_blue') {
+      if (!cr && (inv.wool_blue < 3 || inv.plank < 3)) return showMessage('Benötigt: 3× Blaue Wolle & 3× Holzbretter');
+      if (!cr) { inv.wool_blue -= 3; inv.plank -= 3; inv.bed_blue++; }
+      showMessage('🛏️ Blaues Bett hergestellt');
+    } else if (id === 'wardrobe') {
+      if (!cr && (inv.plank < 6 || inv.iron < 1)) return showMessage('Benötigt: 6× Holzbretter & 1× Eisenbarren');
+      if (!cr) { inv.plank -= 6; inv.iron--; inv.wardrobe++; }
+      showMessage('🚪 Kleiderschrank hergestellt');
+    } else if (id === 'cabinet') {
+      if (!cr && (inv.plank < 4 || inv.stone < 2)) return showMessage('Benötigt: 4× Holzbretter & 2× Stein');
+      if (!cr) { inv.plank -= 4; inv.stone -= 2; inv.cabinet++; }
+      showMessage('🗄️ Küchenschrank hergestellt');
+    } else if (id === 'throne') {
+      if (!cr && (inv.gold < 4 || inv.wool_red < 2)) return showMessage('Benötigt: 4× Goldbarren & 2× Rote Wolle');
+      if (!cr) { inv.gold -= 4; inv.wool_red -= 2; inv.throne++; }
+      showMessage('👑 Königsthron hergestellt!');
+    } else if (id === 'carpet_red') {
+      if (!cr && inv.wool_red < 2) return showMessage('Benötigt: 2× Rote Wolle');
+      if (!cr) { inv.wool_red -= 2; inv.carpet_red += 4; }
+      showMessage('🟥 4× Roter Teppich hergestellt');
+    } else if (id === 'carpet_blue') {
+      if (!cr && inv.wool_blue < 2) return showMessage('Benötigt: 2× Blaue Wolle');
+      if (!cr) { inv.wool_blue -= 2; inv.carpet_blue += 4; }
+      showMessage('🟦 4× Blauer Teppich hergestellt');
+    } else if (id === 'flower_pot') {
+      if (!cr && (inv.brick < 2 || inv.poppy < 1)) return showMessage('Benötigt: 2× Ziegelstein & 1× Mohnblume');
+      if (!cr) { inv.brick -= 2; inv.poppy--; inv.flower_pot++; }
+      showMessage('🪴 Blumentopf hergestellt');
+    } else if (id === 'painting') {
+      if (!cr && (inv.plank < 2 || inv.wool_white < 1)) return showMessage('Benötigt: 2× Holzbretter & 1× Weiße Wolle');
+      if (!cr) { inv.plank -= 2; inv.wool_white--; inv.painting++; }
+      showMessage('🖼️ Gemälde-Block hergestellt');
+    } else if (id === 'clock_block') {
+      if (!cr && (inv.plank < 4 || inv.gold < 1)) return showMessage('Benötigt: 4× Holzbretter & 1× Goldbarren');
+      if (!cr) { inv.plank -= 4; inv.gold--; inv.clock_block++; }
+      showMessage('🕰️ Standuhr hergestellt');
+    } else if (id === 'mirror') {
+      if (!cr && (inv.glass < 2 || inv.iron < 2)) return showMessage('Benötigt: 2× Glasblock & 2× Eisenbarren');
+      if (!cr) { inv.glass -= 2; inv.iron -= 2; inv.mirror++; }
+      showMessage('🪞 Wandspiegel hergestellt');
+    } else if (id === 'barrel') {
+      if (!cr && (inv.plank < 5 || inv.iron < 1)) return showMessage('Benötigt: 5× Holzbretter & 1× Eisenbarren');
+      if (!cr) { inv.plank -= 5; inv.iron--; inv.barrel++; }
+      showMessage('🛢️ Holzfass hergestellt');
+    } else if (id === 'anvil') {
+      if (!cr && (inv.iron < 4 || inv.stone < 3)) return showMessage('Benötigt: 4× Eisenbarren & 3× Stein');
+      if (!cr) { inv.iron -= 4; inv.stone -= 3; inv.anvil++; }
+      showMessage('⚒️ Amboss hergestellt');
+    } else if (id === 'plank') {
+      if (!cr && inv.wood < 1) return showMessage('Benötigt: 1× Holz');
+      if (!cr) { inv.wood--; inv.plank += 4; }
+      showMessage('🪚 4× Holzbretter hergestellt');
+    } else if (id === 'cobble') {
+      if (!cr && inv.stone < 2) return showMessage('Benötigt: 2× Stein');
+      if (!cr) { inv.stone -= 2; inv.cobble += 4; }
+      showMessage('🧱 4× Pflasterstein hergestellt');
+    } else if (id === 'stone_brick') {
+      if (!cr && inv.stone < 4) return showMessage('Benötigt: 4× Stein');
+      if (!cr) { inv.stone -= 4; inv.stone_brick += 4; }
+      showMessage('🏛️ 4× Steinziegel hergestellt');
+    } else if (id === 'mossy_brick') {
+      if (!cr && (inv.stone_brick < 2 || inv.leaves < 1)) return showMessage('Benötigt: 2× Steinziegel & 1× Laub');
+      if (!cr) { inv.stone_brick -= 2; inv.leaves--; inv.mossy_brick += 4; }
+      showMessage('🌿 4× Bemooste Steinziegel hergestellt');
+    } else if (id === 'brick') {
+      if (!cr && (inv.dirt < 2 || inv.coal < 1)) return showMessage('Benötigt: 2× Erde & 1× Kohle');
+      if (!cr) { inv.dirt -= 2; inv.coal--; inv.brick += 4; }
+      showMessage('🟥 4× Ziegelstein hergestellt');
+    } else if (id === 'sandstone') {
+      if (!cr && inv.sand < 4) return showMessage('Benötigt: 4× Sand');
+      if (!cr) { inv.sand -= 4; inv.sandstone += 4; }
+      showMessage('🏜️ 4× Sandstein hergestellt');
+    } else if (id === 'glass') {
+      if (!cr && (inv.sand < 2 || inv.coal < 1)) return showMessage('Benötigt: 2× Sand & 1× Kohle');
+      if (!cr) { inv.sand -= 2; inv.coal--; inv.glass += 4; }
+      showMessage('🪟 4× Glasblock hergestellt');
+    } else if (id === 'bookshelf') {
+      if (!cr && (inv.plank < 4 || inv.wood < 2)) return showMessage('Benötigt: 4× Holzbretter & 2× Holz');
+      if (!cr) { inv.plank -= 4; inv.wood -= 2; inv.bookshelf++; }
+      showMessage('📚 Bücherregal hergestellt');
+    } else if (id === 'chest') {
+      if (!cr && inv.plank < 6) return showMessage('Benötigt: 6× Holzbretter');
+      if (!cr) { inv.plank -= 6; inv.chest++; }
+      showMessage('📦 Vorratstruhe hergestellt');
+    } else if (id === 'workbench') {
+      if (!cr && inv.plank < 4) return showMessage('Benötigt: 4× Holzbretter');
+      if (!cr) { inv.plank -= 4; inv.workbench++; }
+      showMessage('⚒️ Werkbank-Block hergestellt');
+    } else if (id === 'fence') {
+      if (!cr && (inv.plank < 4 || inv.wood < 2)) return showMessage('Benötigt: 4× Holzbretter & 2× Holz');
+      if (!cr) { inv.plank -= 4; inv.wood -= 2; inv.fence += 4; }
+      showMessage('🪵 4× Zaunblock hergestellt');
+    } else if (id === 'wool_white') {
+      if (!cr && (inv.leaves < 2 || inv.wood < 1)) return showMessage('Benötigt: 2× Laub & 1× Holz');
+      if (!cr) { inv.leaves -= 2; inv.wood--; inv.wool_white += 4; }
+      showMessage('⬜ 4× Weiße Wolle hergestellt');
+    } else if (id === 'wool_red') {
+      if (!cr && (inv.wool_white < 2 || inv.apple < 1)) return showMessage('Benötigt: 2× Weiße Wolle & 1× Apfel');
+      if (!cr) { inv.wool_white -= 2; inv.apple--; inv.wool_red += 4; }
+      showMessage('🟥 4× Rote Wolle hergestellt');
+    } else if (id === 'wool_blue') {
+      if (!cr && (inv.wool_white < 2 || inv.ice < 1)) return showMessage('Benötigt: 2× Weiße Wolle & 1× Eis');
+      if (!cr) { inv.wool_white -= 2; inv.ice--; inv.wool_blue += 4; }
+      showMessage('🟦 4× Blaue Wolle hergestellt');
+    } else if (id === 'wool_green') {
+      if (!cr && (inv.wool_white < 2 || inv.mushroom < 1)) return showMessage('Benötigt: 2× Weiße Wolle & 1× Waldpilz');
+      if (!cr) { inv.wool_white -= 2; inv.mushroom--; inv.wool_green += 4; }
+      showMessage('🟩 4× Grüne Wolle hergestellt');
+    } else if (id === 'wool_yellow') {
+      if (!cr && (inv.wool_white < 2 || inv.dandelion < 1)) return showMessage('Benötigt: 2× Weiße Wolle & 1× Löwenzahn');
+      if (!cr) { inv.wool_white -= 2; inv.dandelion--; inv.wool_yellow += 4; }
+      showMessage('🟨 4× Gelbe Wolle hergestellt');
+    } else if (id === 'wool_purple') {
+      if (!cr && (inv.wool_white < 2 || inv.amethyst < 1)) return showMessage('Benötigt: 2× Weiße Wolle & 1× Amethystsplitter');
+      if (!cr) { inv.wool_white -= 2; inv.amethyst--; inv.wool_purple += 4; }
+      showMessage('🟪 4× Lila Wolle hergestellt');
+    } else if (id === 'lantern') {
+      if (!cr && (inv.iron < 1 || inv.torch < 1)) return showMessage('Benötigt: 1× Eisenbarren & 1× Fackel');
+      if (!cr) { inv.iron--; inv.torch--; inv.lantern++; }
+      showMessage('🏮 Laterne hergestellt');
+    } else if (id === 'glowstone') {
+      if (!cr && (inv.gold < 2 || inv.glass < 2)) return showMessage('Benötigt: 2× Goldbarren & 2× Glasblock');
+      if (!cr) { inv.gold -= 2; inv.glass -= 2; inv.glowstone++; }
+      showMessage('✨ Glowstone hergestellt');
+    } else if (id === 'sea_lantern') {
+      if (!cr && (inv.quartz < 2 || inv.glass < 2)) return showMessage('Benötigt: 2× Quarz & 2× Glasblock');
+      if (!cr) { inv.quartz -= 2; inv.glass -= 2; inv.sea_lantern++; }
+      showMessage('💠 Seelaterne hergestellt');
+    } else if (id === 'jack_o_lantern') {
+      if (!cr && (inv.pumpkin < 1 || inv.torch < 1)) return showMessage('Benötigt: 1× Kürbis & 1× Fackel');
+      if (!cr) { inv.pumpkin--; inv.torch--; inv.jack_o_lantern++; }
+      showMessage('🎃 Kürbislaterne hergestellt');
+    } else if (id === 'ladder') {
+      if (!cr && inv.wood < 3) return showMessage('Benötigt: 3× Holz');
+      if (!cr) { inv.wood -= 3; inv.ladder += 4; }
+      showMessage('🪜 4× Leiterblock hergestellt');
+    } else if (id === 'tnt') {
+      if (!cr && (inv.sand < 3 || inv.gunpowder < 2)) return showMessage('Benötigt: 3× Sand & 2× Schießpulver');
+      if (!cr) { inv.sand -= 3; inv.gunpowder -= 2; inv.tnt++; }
+      showMessage('🧨 TNT-Block hergestellt');
+    } else if (id === 'gold_block') {
+      if (!cr && inv.gold < 4) return showMessage('Benötigt: 4× Goldbarren');
+      if (!cr) { inv.gold -= 4; inv.gold_block++; }
+      showMessage('🟨 Goldblock hergestellt');
+    } else if (id === 'diamond_block') {
+      if (!cr && inv.diamond < 4) return showMessage('Benötigt: 4× Diamant');
+      if (!cr) { inv.diamond -= 4; inv.diamond_block++; }
+      showMessage('💠 Diamantblock hergestellt');
+    } else if (id === 'emerald_block') {
+      if (!cr && inv.emerald < 4) return showMessage('Benötigt: 4× Smaragd');
+      if (!cr) { inv.emerald -= 4; inv.emerald_block++; }
+      showMessage('💚 Smaragdblock hergestellt');
+    } else if (id === 'quartz_block') {
+      if (!cr && inv.quartz < 4) return showMessage('Benötigt: 4× Quarz');
+      if (!cr) { inv.quartz -= 4; inv.quartz_block++; }
+      showMessage('⬜ Quarzblock hergestellt');
+    } else if (id === 'obsidian') {
+      if (!cr && (inv.stone < 4 || inv.coal < 2)) return showMessage('Benötigt: 4× Stein & 2× Kohle');
+      if (!cr) { inv.stone -= 4; inv.coal -= 2; inv.obsidian += 2; }
+      showMessage('🟪 2× Obsidian hergestellt');
+    } else if (id === 'stonePick') {
+      if (cr || state.tools.stonePick) return;
+      if (inv.stone < 3 || inv.wood < 2) return showMessage('Benötigt: 3× Stein & 2× Holz');
+      inv.stone -= 3; inv.wood -= 2; state.tools.stonePick = true;
+      showMessage('⛏ Steinspitzhacke hergestellt!');
+    } else if (id === 'ironPick') {
+      if (cr || state.tools.ironPick) return;
+      if (inv.iron < 3 || inv.wood < 2) return showMessage('Benötigt: 3× Eisenbarren & 2× Holz');
+      inv.iron -= 3; inv.wood -= 2; state.tools.ironPick = true;
+      showMessage('🔩 Eisenspitzhacke hergestellt!');
+    } else if (id === 'diamondPick') {
+      if (cr || state.tools.diamondPick) return;
+      if (inv.diamond < 3 || inv.wood < 2) return showMessage('Benötigt: 3× Diamant & 2× Holz');
+      inv.diamond -= 3; inv.wood -= 2; state.tools.diamondPick = true;
+      showMessage('💎 Diamantspitzhacke hergestellt!');
+    } else if (id === 'emeraldPick') {
+      if (cr || state.tools.emeraldPick) return;
+      if (inv.emerald < 3 || inv.wood < 2) return showMessage('Benötigt: 3× Smaragd & 2× Holz');
+      inv.emerald -= 3; inv.wood -= 2; state.tools.emeraldPick = true;
+      showMessage('💚 Smaragdspitzhacke hergestellt!');
+    } else if (id === 'sword') {
+      if (cr || state.tools.sword) return;
+      if (inv.iron < 2 || inv.wood < 1) return showMessage('Benötigt: 2× Eisenbarren & 1× Holz');
+      inv.iron -= 2; inv.wood -= 1; state.tools.sword = true;
+      showMessage('⚔️ Eisenklinge geschmiedet!');
+    } else if (id === 'diamondSword') {
+      if (cr || state.tools.diamondSword) return;
+      if (inv.diamond < 2 || inv.wood < 1) return showMessage('Benötigt: 2× Diamant & 1× Holz');
+      inv.diamond -= 2; inv.wood -= 1; state.tools.diamondSword = true;
+      showMessage('🗡 Diamantschwert geschmiedet!');
+    } else if (id === 'emeraldSword') {
+      if (cr || state.tools.emeraldSword) return;
+      if (inv.emerald < 2 || inv.wood < 1) return showMessage('Benötigt: 2× Smaragd & 1× Holz');
+      inv.emerald -= 2; inv.wood -= 1; state.tools.emeraldSword = true;
+      showMessage('🔰 Smaragdschwert geschmiedet!');
+    } else if (id === 'torch') {
+      if (!cr && (inv.wood < 1 || inv.coal < 1)) return showMessage('Benötigt: 1× Holz & 1× Kohle');
+      if (!cr) { inv.wood--; inv.coal--; inv.torch += 4; }
+      showMessage('🕯 4× Fackeln hergestellt');
+    } else if (id === 'campfire') {
+      if (!cr && (inv.wood < 3 || inv.stone < 2)) return showMessage('Benötigt: 3× Holz & 2× Stein');
+      if (!cr) { inv.wood -= 3; inv.stone -= 2; inv.campfire++; }
+      showMessage('🔥 Lagerfeuer hergestellt');
+    } else if (id === 'furnace') {
+      if (!cr && inv.stone < 6) return showMessage('Benötigt: 6× Stein');
+      if (!cr) { inv.stone -= 6; inv.furnace++; }
+      showMessage('♨️ Schmelzofen hergestellt');
+    } else if (id === 'bread') {
+      if (!cr && inv.apple < 3) return showMessage('Benötigt: 3× Apfel');
+      if (!cr) { inv.apple -= 3; inv.bread += 2; }
+      showMessage('🍞 2× Brot gebacken!');
+    } else if (id === 'pumpkin_pie') {
+      if (!cr && (inv.pumpkin < 1 || inv.apple < 1)) return showMessage('Benötigt: 1× Kürbis & 1× Apfel');
+      if (!cr) { inv.pumpkin--; inv.apple--; inv.pumpkin_pie++; }
+      showMessage('🥧 Kürbiskuchen gebacken!');
+    } else if (id === 'golden_apple') {
+      if (!cr && (inv.apple < 1 || inv.gold < 2)) return showMessage('Benötigt: 1× Apfel & 2× Goldbarren');
+      if (!cr) { inv.apple--; inv.gold -= 2; inv.golden_apple++; }
+      showMessage('🍏 Goldener Apfel hergestellt!');
+    } else if (id === 'potion_heal') {
+      if (!cr && (inv.glass < 1 || inv.apple < 1 || inv.poppy < 1)) return showMessage('Benötigt: 1× Glasblock, 1× Apfel & 1× Mohnblume');
+      if (!cr) { inv.glass--; inv.apple--; inv.poppy--; inv.potion_heal++; }
+      showMessage('🧪 Heiltrank gebraut!');
+    } else if (id === 'potion_haste') {
+      if (!cr && (inv.glass < 1 || inv.gold < 1 || inv.coal < 1)) return showMessage('Benötigt: 1× Glasblock, 1× Goldbarren & 1× Kohle');
+      if (!cr) { inv.glass--; inv.gold--; inv.coal--; inv.potion_haste++; }
+      showMessage('⚡ Eile-Trank gebraut!');
+    } else if (id === 'smeltIron') {
+      if (!cr) {
+        if (inv.iron_ore < 1) return showMessage('Benötigt: 1× Eisenerz');
+        if (inv.coal >= 1) inv.coal--;
+        else if (inv.wood >= 2) inv.wood -= 2;
+        else return showMessage('Benötigt Brennstoff: 1× Kohle oder 2× Holz');
+        inv.iron_ore--; inv.iron++;
+      }
+      state.stats.smeltedIron = true;
+      showMessage('🔩 1× Eisenbarren geschmolzen!');
+    } else if (id === 'smeltGold') {
+      if (!cr) {
+        if (inv.gold_ore < 1) return showMessage('Benötigt: 1× Golderz');
+        if (inv.coal >= 1) inv.coal--;
+        else if (inv.wood >= 2) inv.wood -= 2;
+        else return showMessage('Benötigt Brennstoff: 1× Kohle oder 2× Holz');
+        inv.gold_ore--; inv.gold++;
+      }
+      showMessage('🥇 1× Goldbarren geschmolzen!');
+    } else if (id === 'smeltCopper') {
+      if (!cr) {
+        if (inv.copper_ore < 1) return showMessage('Benötigt: 1× Kupfererz');
+        if (inv.coal >= 1) inv.coal--;
+        else if (inv.wood >= 2) inv.wood -= 2;
+        else return showMessage('Benötigt Brennstoff: 1× Kohle oder 2× Holz');
+        inv.copper_ore--; inv.copper++;
+      }
+      showMessage('🥉 1× Kupferbarren geschmolzen!');
+    } else if (id === 'cookMushroom') {
+      if (!cr) {
+        if (inv.mushroom < 1) return showMessage('Benötigt: 1× Waldpilz');
+        if (inv.coal >= 1) inv.coal--;
+        else if (inv.wood >= 1) inv.wood--;
+        else return showMessage('Benötigt: 1× Holz oder Kohle');
+        inv.mushroom--; inv.cooked_mushroom++;
+      }
+      showMessage('🍖 Waldpilz gebraten!');
+    } else if (id === 'cookApple') {
+      if (!cr) {
+        if (inv.apple < 1) return showMessage('Benötigt: 1× Apfel');
+        if (inv.wood < 1) return showMessage('Benötigt: 1× Holz');
+        inv.apple--; inv.wood--; inv.cooked_apple++;
+      }
+      showMessage('🥧 Bratapfel zubereitet!');
+    } else if (id === 'cookPotato') {
+      if (!cr) {
+        if (inv.potato < 1) return showMessage('Benötigt: 1× Kartoffel');
+        if (inv.wood < 1) return showMessage('Benötigt: 1× Holz');
+        inv.potato--; inv.wood--; inv.baked_potato++;
+      }
+      showMessage('🥔 Ofenkartoffel gebacken!');
+    }
+
+    sfx.craft();
+    refreshInventoryUI();
+  };
+});
+
+const isTouchDevice = () => ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+document.querySelector('#creativeToggleBtn').onclick = () => setCreativeMode(!state.creativeMode);
+document.querySelector('#mobileCreativeBtn').onclick = () => setCreativeMode(!state.creativeMode);
+document.querySelector('#invbtn').onclick = () => toggleInventory();
+document.querySelector('#mobileInvBtn').onclick = () => toggleInventory();
+document.querySelector('#closeinv').onclick = () => toggleInventory(false);
+document.querySelector('#questPanel').onclick = () => toggleInventory(true, 'items');
+document.querySelector('#eatQuickBtn').onclick = () => eatBestFood();
+document.querySelector('#muteBtn').onclick = e => {
+  muted = !muted;
+  e.target.textContent = muted ? '🔇 Stumm' : '🔊 Ton';
+};
+document.querySelector('#saveNowBtn').onclick = () => saveGame(false);
+document.querySelector('#resetSaveBtn').onclick = () => {
+  localStorage.removeItem(SAVE_KEY);
+  location.reload();
+};
+
+function enterWorld(shouldLoad, startCreative = null) {
+  try {
+    if (shouldLoad) loadGame();
+    if (typeof startCreative === 'boolean') {
+      state.creativeMode = startCreative;
+    }
+    if (player.dead || state.creativeMode) {
+      player.hp = 100;
+      player.hunger = 100;
+      player.warmth = 100;
+      if (player.dead) {
+        player.x = 0;
+        player.z = 6;
+        player.y = heightAt(0, 6) + 1.5;
+        player.vy = 0;
+        player.flying = false;
+        state.inv.apple = Math.max(state.inv.apple, 2);
+      }
+      player.dead = false;
+    }
+    syncFlyUI();
+    applyCreativeModeUI();
+    gameStarted = true;
+    const startEl = document.querySelector('#start');
+    if (startEl) startEl.style.display = 'none';
+    initFirebaseMultiplayer();
+    updateChunks(true);
+    refreshInventoryUI();
+    refreshVitalsUI(true);
+    if (!isTouchDevice() && renderer.domElement.requestPointerLock) {
+      renderer.domElement.requestPointerLock();
+    }
+  } catch (err) {
+    console.error('Fehler beim Betreten der Welt:', err);
+    gameStarted = true;
+    const startEl = document.querySelector('#start');
+    if (startEl) startEl.style.display = 'none';
+    updateChunks(true);
+  }
+}
+
+document.querySelector('#play').onclick = () => enterWorld(false, false);
+document.querySelector('#startCreativeBtn').onclick = () => enterWorld(false, true);
+document.querySelector('#loadStartBtn').onclick = () => enterWorld(true, null);
+
+// Desktop Controls
+renderer.domElement.addEventListener('click', () => {
+  if (!gameStarted || invOpen || player.dead || isTouchDevice()) return;
+  if (!locked && renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
+});
+
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === renderer.domElement;
+  if (!locked) isHoldingMine = false;
+});
+
+document.addEventListener('mousemove', e => {
+  if (!locked || invOpen || player.dead) return;
+  yaw -= e.movementX * 0.0022;
+  pitch = THREE.MathUtils.clamp(pitch - e.movementY * 0.0022, -1.42, 1.42);
+});
+
+document.addEventListener('mousedown', e => {
+  if (!locked || invOpen || player.dead) return;
+  if (e.button === 0) {
+    const t = getTarget();
+    if (t && t.kind === 'enemy') {
+      attackEnemy(t.enemy);
+    } else {
+      isHoldingMine = true;
+    }
+  }
+  if (e.button === 2) buildOrInteract();
+});
+
+document.addEventListener('mouseup', e => {
+  if (e.button === 0) isHoldingMine = false;
+});
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+document.addEventListener('wheel', e => {
+  if (!gameStarted || invOpen || player.dead) return;
+  selectSlot(selected + (e.deltaY > 0 ? 1 : -1));
+}, { passive: true });
+
+document.addEventListener('keydown', e => {
+  if (document.activeElement === invSearchInput || document.activeElement === document.querySelector('#playerNameInput')) {
+    if (e.code === 'Escape') toggleInventory(false);
+    return;
+  }
+  const isFreshPress = !keys[e.code];
+  keys[e.code] = true;
+  if (e.code === 'KeyE') toggleInventory();
+  if (e.code === 'KeyC' && gameStarted && !player.dead) setCreativeMode(!state.creativeMode);
+  if (e.code === 'KeyF' && gameStarted && !invOpen && !player.dead) eatBestFood();
+  if (e.code.startsWith('Digit')) {
+    const num = Number(e.code.slice(5));
+    if (num >= 1 && num <= HOTBAR_ITEMS.length) selectSlot(num - 1);
+  }
+  if (e.code === 'Space' && isFreshPress && gameStarted && !invOpen && !player.dead) {
+    registerJumpPress();
+  }
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// Mobile Touch Joystick & Controls
+const joystickBase = document.querySelector('#joystickBase');
+const joystickKnob = document.querySelector('#joystickKnob');
+let joyTouchId = null;
+
+function updateJoystickFromPoint(clientX, clientY) {
+  const rect = joystickBase.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const maxR = rect.width * 0.36;
+  let dx = clientX - cx;
+  let dy = clientY - cy;
+  const dist = Math.hypot(dx, dy);
+  if (dist > maxR && dist > 0) {
+    dx = (dx / dist) * maxR;
+    dy = (dy / dist) * maxR;
+  }
+  joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+  joyX = dx / maxR;
+  joyY = -dy / maxR;
+}
+
+function resetJoystick() {
+  joyTouchId = null;
+  joyX = 0;
+  joyY = 0;
+  joystickKnob.style.transform = 'translate(0px, 0px)';
+}
+
+joystickBase.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (joyTouchId !== null) return;
+  const t = e.changedTouches[0];
+  joyTouchId = t.identifier;
+  updateJoystickFromPoint(t.clientX, t.clientY);
+}, { passive: false });
+
+joystickBase.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (joyTouchId === null) return;
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) {
+      updateJoystickFromPoint(t.clientX, t.clientY);
+      break;
+    }
+  }
+}, { passive: false });
+
+joystickBase.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === joyTouchId) { resetJoystick(); break; }
+  }
+}, { passive: false });
+
+joystickBase.addEventListener('touchcancel', resetJoystick, { passive: false });
+
+const jumpBtnEl = document.querySelector('#jump');
+jumpBtnEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!gameStarted || invOpen || player.dead) return;
+  isHoldingJumpTouch = true;
+  registerJumpPress();
+}, { passive: false });
+jumpBtnEl.addEventListener('touchend', () => { isHoldingJumpTouch = false; }, { passive: false });
+jumpBtnEl.addEventListener('touchcancel', () => { isHoldingJumpTouch = false; }, { passive: false });
+
+const descendBtnEl = document.querySelector('#descendBtn');
+descendBtnEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!gameStarted || invOpen || player.dead) return;
+  isHoldingDescendTouch = true;
+}, { passive: false });
+descendBtnEl.addEventListener('touchend', () => { isHoldingDescendTouch = false; }, { passive: false });
+descendBtnEl.addEventListener('touchcancel', () => { isHoldingDescendTouch = false; }, { passive: false });
+
+const mineBtnEl = document.querySelector('#mineBtn');
+mineBtnEl.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!gameStarted || invOpen || player.dead) return;
+  const t = getTarget();
+  if (t && t.kind === 'enemy') {
+    attackEnemy(t.enemy);
+  } else {
+    isHoldingMine = true;
+  }
+}, { passive: false });
+mineBtnEl.addEventListener('touchend', () => { isHoldingMine = false; }, { passive: false });
+mineBtnEl.addEventListener('touchcancel', () => { isHoldingMine = false; }, { passive: false });
+
+document.querySelector('#buildBtn').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!gameStarted || invOpen || player.dead) return;
+  buildOrInteract();
+}, { passive: false });
+
+document.querySelector('#mobileEatBtn').addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!gameStarted || invOpen || player.dead) return;
+  eatBestFood();
+}, { passive: false });
+
+let lookTouchId = null;
+let lastLX = 0;
+let lastLY = 0;
+
+document.addEventListener('touchstart', e => {
+  if (!gameStarted || invOpen || player.dead) return;
+  for (const t of e.changedTouches) {
+    if (t.target.closest('#joystickBase, #jump, #descendBtn, #mobileActions, #bottom, #top, #inventory, #start')) continue;
+    if (lookTouchId === null && t.clientX > innerWidth * 0.25) {
+      lookTouchId = t.identifier;
+      lastLX = t.clientX;
+      lastLY = t.clientY;
+    }
+  }
+}, { passive: true });
+
+document.addEventListener('touchmove', e => {
+  if (lookTouchId === null || invOpen || player.dead) return;
+  for (const t of e.changedTouches) {
+    if (t.identifier === lookTouchId) {
+      yaw -= (t.clientX - lastLX) * 0.0052;
+      pitch = THREE.MathUtils.clamp(pitch - (t.clientY - lastLY) * 0.0052, -1.42, 1.42);
+      lastLX = t.clientX;
+      lastLY = t.clientY;
+      break;
+    }
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === lookTouchId) { lookTouchId = null; break; }
+  }
+});
+
+const forceLandscapeBtn = document.querySelector('#forceLandscapeBtn');
+if (forceLandscapeBtn) {
+  forceLandscapeBtn.addEventListener('click', async () => {
+    try {
+      if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock('landscape');
+      }
+    } catch (_) {}
+  });
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+setInterval(() => {
+  if (gameStarted && !player.dead) saveGame(true);
+}, 30000);
+
+/* =========================================================
+   12. HAUPTSCHLEIFE: BEWEGUNG, KLIMA, WETTER & TAG-NACHT-ZYKLUS
+   ========================================================= */
+let prevTime = performance.now();
+let lastQuestCheck = 0;
+
+function animate(now) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (now - prevTime) / 1000);
+  prevTime = now;
+
+  if (gameStarted && !invOpen && !player.dead) {
+    let moveForward = joyY + ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0);
+    let moveRight = joyX + ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0);
+    const mag = Math.hypot(moveForward, moveRight);
+    if (mag > 1) { moveForward /= mag; moveRight /= mag; }
+
+    const baseSpeed = player.flying ? 8.2 : 5.3;
+    const fx = -Math.sin(yaw);
+    const fz = -Math.cos(yaw);
+    const rx = Math.cos(yaw);
+    const rz = -Math.sin(yaw);
+
+    const dx = (fx * moveForward + rx * moveRight) * baseSpeed * dt;
+    const dz = (fz * moveForward + rz * moveRight) * baseSpeed * dt;
+
+    if (player.flying) {
+      let flyVert = 0;
+      if (keys.Space || isHoldingJumpTouch) flyVert += 1;
+      if (keys.ShiftLeft || keys.ShiftRight || keys.KeyC || isHoldingDescendTouch) flyVert -= 1;
+      player.vy = 0;
+      moveAndCollide(dx, flyVert * 6.2 * dt, dz);
+    } else {
+      const inWater = player.y < WATER_LEVEL - 0.1;
+      player.vy -= (inWater ? 6.5 : 19.5) * dt;
+      if (inWater) player.vy = Math.max(-2.6, Math.min(3.5, player.vy));
+      moveAndCollide(dx, player.vy * dt, dz);
+    }
+
+    updateChunks(false);
+    player.sheltered = checkShelterAbove();
+
+    let nearHeat = false;
+    for (const hs of heatSources.values()) {
+      if (Math.hypot(player.x - hs.x, player.y - hs.y, player.z - hs.z) <= hs.radius) {
+        nearHeat = true;
+        break;
+      }
+    }
+    player.nearHeat = nearHeat;
+    if (player.hasteTimer > 0) player.hasteTimer = Math.max(0, player.hasteTimer - dt);
+
+    state.worldTime += dt;
+    weatherTimer -= dt;
+    if (weatherTimer <= 0) {
+      weatherTimer = 35 + Math.random() * 35;
+      isRaining = !isRaining;
+      showMessage(isRaining ? '🌧 Ein Regenschauer zieht auf' : '☀️ Der Himmel klärt auf');
+    }
+
+    const cycle = state.worldTime * 0.048 + 0.45;
+    const sunElev = Math.sin(cycle);
+    const isNight = sunElev < -0.15;
+    const dayNum = getDayNumber();
+    if (dayNum >= 2) state.stats.survivedNight1 = true;
+
+    const dayFactor = THREE.MathUtils.clamp((sunElev + 0.35) / 0.85, 0, 1);
+    const rainDarken = isRaining ? 0.72 : 1.0;
+
+    const daySky = new THREE.Color(0x9eb9c1);
+    const duskSky = new THREE.Color(0xc9825b);
+    const nightSky = new THREE.Color(0x131d29);
+    const skyCol = new THREE.Color();
+    if (sunElev >= 0) {
+      skyCol.lerpColors(duskSky, daySky, Math.min(1, sunElev * 2.2));
+    } else {
+      skyCol.lerpColors(nightSky, duskSky, THREE.MathUtils.clamp((sunElev + 0.35) / 0.35, 0, 1));
+    }
+    skyCol.multiplyScalar(rainDarken);
+    scene.background.copy(skyCol);
+    scene.fog.color.copy(skyCol);
+
+    hemiLight.intensity = (0.45 + dayFactor * 1.15) * rainDarken;
+    sun.intensity = Math.max(0.15, sunElev * 2.4) * rainDarken;
+    sun.position.set(Math.cos(cycle) * 36, Math.max(4, sunElev * 42), Math.sin(cycle) * 32);
+    sun.target.position.set(player.x, player.y, player.z);
+    sun.target.updateMatrixWorld();
+
+    starMat.opacity = isNight ? THREE.MathUtils.clamp((-sunElev - 0.15) * 1.4, 0, 0.85) * (isRaining ? 0.15 : 1) : 0;
+    stars.position.set(player.x, 0, player.z);
+
+    rainMat.opacity = isRaining ? 0.42 : 0;
+    rainLines.visible = isRaining;
+    if (isRaining) {
+      const posAttr = rainGeo.attributes.position;
+      for (let i = 0; i < RAIN_COUNT; i++) {
+        let rx = posAttr.getX(i * 2) - 2.2 * dt;
+        let ry = posAttr.getY(i * 2) - 16.5 * dt;
+        let rz = posAttr.getZ(i * 2);
+        if (ry < -2) {
+          rx = player.x + (Math.random() - 0.5) * 34;
+          ry = player.y + 12 + Math.random() * 6;
+          rz = player.z + (Math.random() - 0.5) * 34;
+        }
+        posAttr.setXYZ(i * 2, rx, ry, rz);
+        posAttr.setXYZ(i * 2 + 1, rx - 0.12, ry - 0.65, rz);
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    const phaseLabel = sunElev > 0.25 ? 'TAG' : sunElev > -0.15 ? 'DÄMMERUNG' : 'NACHT';
+    document.querySelector('#daybadge').textContent = `TAG ${dayNum} · ${phaseLabel}`;
+    document.querySelector('#weatherBadge').textContent = isRaining ? '🌧 REGEN' : '☀️ KLAR';
+
+    if (state.creativeMode) {
+      player.hp = 100;
+      player.hunger = 100;
+      player.warmth = 100;
+    } else {
+      player.hunger = Math.max(0, player.hunger - dt * 0.42);
+      let warmthDelta = 0;
+      if (nearHeat) warmthDelta += 14.0;
+      else if (player.sheltered) warmthDelta += isNight ? 1.2 : 3.0;
+      else warmthDelta += isNight ? -3.4 : (isRaining ? -2.2 : 0.8);
+      player.warmth = THREE.MathUtils.clamp(player.warmth + warmthDelta * dt, 0, 100);
+
+      if (player.warmth <= 0) player.hp = Math.max(0, player.hp - dt * 3.2);
+      if (player.hunger <= 0) player.hp = Math.max(0, player.hp - dt * 2.2);
+      if (player.hunger > 65 && player.warmth > 50 && player.hp < 100) {
+        player.hp = Math.min(100, player.hp + dt * 1.6);
+      }
+
+      if (player.hp <= 0 && !player.dead) {
+        player.dead = true;
+        isHoldingMine = false;
+        if (locked && document.exitPointerLock) document.exitPointerLock();
+        showMessage('💀 Du bist in der Wildnis gefallen...');
+        setTimeout(() => {
+          document.querySelector('#startTitle').textContent = 'DU BIST GEFALLEN';
+          document.querySelector('#startText').textContent = `Du hast Tag ${dayNum} erreicht und ${state.stats.defeatedEnemies} Schattenwesen besiegt. Starte neu oder lade deinen letzten Spielstand.`;
+          if (localStorage.getItem(SAVE_KEY)) document.querySelector('#loadStartBtn').style.display = 'inline-block';
+          document.querySelector('#start').style.display = 'grid';
+        }, 900);
+      }
+    }
+
+    refreshVitalsUI(false);
+    refreshBuffsUI();
+    updateEnemies(dt, isNight);
+    updateStationJob(dt);
+    syncPlayerToFirebase(now);
+
+    if (now - lastQuestCheck > 350) {
+      lastQuestCheck = now;
+      checkQuests();
+    }
+  }
+
+  updateRemotePlayersSmooth(dt);
+  updateMiningAndTarget(dt);
+  updateParticles(dt);
+
+  camera.position.set(player.x, player.y + player.eyeHeight, player.z);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+
+  renderer.render(scene, camera);
+}
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
